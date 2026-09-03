@@ -57,7 +57,7 @@ TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境�
 
 ### 通过域名访问
 
-3D 网站：https://loft.45-59-102-76.sslip.io/ 。TeamCity：https://ci.45-59-102-76.sslip.io/ ，使用已创建的账号登录，无需 SSH 隧道。客户管理演示地址为网站域名下的 `/manage.html`。
+3D 网站：https://neon-loft-zyh.duckdns.org/ 。TeamCity：https://neon-ci-zyh.duckdns.org/ ，使用已创建的账号登录，无需 SSH 隧道。客户管理演示地址为网站域名下的 `/manage.html`。
 
 配置、备份与维护见 [反向代理说明](../docker/reverse-proxy/README.md)。证书自动续期。切换到 HTTPS 域名后，原 HTTP IP 下的浏览器 localStorage 数据不会自动迁移。
 
@@ -69,7 +69,7 @@ TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境�
 ssh -N -o ServerAliveInterval=30 -L 127.0.0.1:18111:127.0.0.1:8111 root@45.59.102.76
 ```
 
-保持终端连接，再访问 `http://127.0.0.1:18111/`。如果本机 18111 已由现有隧道监听，直接使用该页面即可。公网网站为 `https://loft.45-59-102-76.sslip.io/`，原 IP 地址自动跳转。网站与 TeamCity 的公网 HTTPS 访问均不依赖本机隧道或电脑保持开机。
+保持终端连接，再访问 `http://127.0.0.1:18111/`。如果本机 18111 已由现有隧道监听，直接使用该页面即可。公网网站为 `https://neon-loft-zyh.duckdns.org/`，原 IP 地址自动跳转。网站与 TeamCity 的公网 HTTPS 访问均不依赖本机隧道或电脑保持开机。
 
 本机验证 Kotlin 定义时需要 JDK 21、Maven 和上述隧道：在 `.teamcity` 目录运行 `mvn teamcity-configs:generate`。在服务器上运行则追加 `-Dteamcity.server.url=http://127.0.0.1:8111`。依赖仓库地址可通过该参数覆盖。
 

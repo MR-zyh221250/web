@@ -2,11 +2,11 @@
 
 当前服务器：45.59.102.76（Linux）。
 
-- 3D 网站：https://loft.45-59-102-76.sslip.io/
-- 客户管理演示：https://loft.45-59-102-76.sslip.io/manage.html
-- TeamCity：https://ci.45-59-102-76.sslip.io/
+- 3D 网站：https://neon-loft-zyh.duckdns.org/
+- 客户管理演示：https://neon-loft-zyh.duckdns.org/manage.html
+- TeamCity：https://neon-ci-zyh.duckdns.org/
 
-sslip.io 将域名中的 IPv4 地址解析到服务器，无需账号或 DNS 令牌。它是第三方免费服务，域名中包含服务器 IP；换 IP 时需更换域名和代理配置。
+DuckDNS 提供免费子域名；两个域名的 A 记录均指向服务器 45.59.102.76。地址栏不再包含服务器 IP 或端口，DNS 查询仍可查到服务器 IP。服务器 IP 变化时，在 DuckDNS 更新这两个域名的解析。账号令牌不得提交到 Git。
 
 ## 已部署结构
 
@@ -30,7 +30,7 @@ CADDY_IMAGE=caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7
 - Server 原来的 8111 仍仅绑定宿主机回环地址，供 SSH 隧道和内部访问使用。
 - 增加 `127.0.0.1:8112:8112` 供 Caddy 专用。
 - 挂载 `./server.xml:/opt/teamcity/conf/server.xml:ro`。
-- TeamCity Global Settings 的 Server URL 为 `https://ci.45-59-102-76.sslip.io`。
+- TeamCity Global Settings 的 Server URL 为 `https://neon-ci-zyh.duckdns.org`。
 
 专用 Tomcat Connector 位于原 XML 的 `<Service name="Catalina">` 内：
 
@@ -40,7 +40,7 @@ CADDY_IMAGE=caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7
            tcpNoDelay="1" maxHttpHeaderSize="16000"
            maxParameterCount="-1" maxPartCount="-1"
            scheme="https" secure="true" proxyPort="443"
-           proxyName="ci.45-59-102-76.sslip.io" />
+           proxyName="neon-ci-zyh.duckdns.org" />
 ```
 
 Caddy 保留 Host、Origin 等请求头，支持 WebSocket，并传递 HTTPS 转发信息。TeamCity 保持原账号认证，未启用自由注册。首次用新域名访问需要重新登录，旧域名的登录会话不会自动转移。
@@ -53,8 +53,8 @@ Caddy 保留 Host、Origin 等请求头，支持 WebSocket，并传递 HTTPS 转
 docker compose --project-directory /opt/neon-proxy config --quiet
 docker compose --project-directory /opt/neon-proxy exec -T caddy caddy validate --config /etc/caddy/Caddyfile
 docker compose --project-directory /opt/neon-proxy restart caddy
-curl -f https://loft.45-59-102-76.sslip.io/healthz
-curl -I https://ci.45-59-102-76.sslip.io/login.html
+curl -f https://neon-loft-zyh.duckdns.org/healthz
+curl -I https://neon-ci-zyh.duckdns.org/login.html
 ```
 
 代理独立于网站发布，TeamCity 更新网站容器不会重建证书卷或代理。网站容器重建时仍有短暂中断。
@@ -63,6 +63,10 @@ curl -I https://ci.45-59-102-76.sslip.io/login.html
 
 ## 浏览器数据
 
-客户演示数据使用 localStorage。HTTP IP 与 HTTPS 域名属于不同来源，原先在 IP 地址下创建的客户数据不会自动显示在新域名下。后续接入后台数据库再实现共享存储。
+客户和销售数据已保存在服务器 MySQL；更换域名不迁移或清空数据库。新域名需要重新登录，账号和已有业务记录保持不变。旧 sslip.io 地址会重定向至新域名。
 
-参考：https://sslip.io/ 、https://caddyserver.com/docs/quick-starts/https 、https://www.jetbrains.com/help/teamcity/configuring-proxy-server.html
+参考：https://www.duckdns.org/spec.jsp 、https://caddyserver.com/docs/quick-starts/https 、https://www.jetbrains.com/help/teamcity/configuring-proxy-server.html
+
+## 更换域名时的同步配置
+
+除 DNS 与本目录 Caddyfile 外，还须同步 CRM Compose 的 PUBLIC_ORIGIN、TeamCity 的 Server URL 和 server.xml 中专用 Connector 的 proxyName。先确认新域名证书可用，再切换登录来源与旧地址跳转。仓库配置通过 GitHub Desktop 提交推送，避免后续流水线恢复旧的登录来源。

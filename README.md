@@ -26,7 +26,7 @@ npm run dev
 
 Dockerfile 使用 Node 构建、Nginx 提供页面，包含容器健康检查和静态素材缓存。TeamCity 配置位于 `.teamcity/settings.kts`，执行镜像构建、HTTP 检查和部署，部署失败时尝试回退上一版本。
 
-网站地址：https://loft.45-59-102-76.sslip.io/ 。TeamCity：https://ci.45-59-102-76.sslip.io/ ，使用原有账号登录。两者由独立 Caddy 容器反向代理，HTTPS 证书自动续期。原 IP 的 HTTP 访问自动跳转至网站域名。
+网站地址：https://neon-loft-zyh.duckdns.org/ 。TeamCity：https://neon-ci-zyh.duckdns.org/ ，使用原有账号登录。两者由独立 Caddy 容器反向代理，HTTPS 证书自动续期。原 IP 的 HTTP 访问自动跳转至网站域名。
 
 构建 #3 已成功部署提交 `c79d2d1a3808`。VCS 触发器每分钟检查 main，网站部署端口已改为宿主机回环地址 8080。具体参数和操作步骤见 [部署说明](docs/DEPLOYMENT.md) 和 [反向代理说明](docker/reverse-proxy/README.md)。客户管理、账号权限、数据备份和容器说明见 [CRM 使用与运维](docs/CRM.md)。
 

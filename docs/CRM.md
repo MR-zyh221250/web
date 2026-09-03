@@ -2,7 +2,7 @@
 
 ## 使用
 
-入口：https://loft.45-59-102-76.sslip.io/manage.html
+入口：https://neon-loft-zyh.duckdns.org/manage.html
 
 3D 房间公开展示；客户管理必须登录。CRM 和 TeamCity 使用独立账号。
 

@@ -1,7 +1,7 @@
 {
     admin off
 }
-loft.45-59-102-76.sslip.io {
+neon-loft-zyh.duckdns.org {
     handle /api/* {
         reverse_proxy 127.0.0.1:3000
     }
@@ -9,7 +9,7 @@ loft.45-59-102-76.sslip.io {
         reverse_proxy 127.0.0.1:8080
     }
 }
-ci.45-59-102-76.sslip.io {
+neon-ci-zyh.duckdns.org {
     reverse_proxy 127.0.0.1:8112 {
         header_up X-Forwarded-Port 443
         transport http {
@@ -19,5 +19,12 @@ ci.45-59-102-76.sslip.io {
     }
 }
 http://45.59.102.76 {
-    redir https://loft.45-59-102-76.sslip.io{uri} permanent
+    redir https://neon-loft-zyh.duckdns.org{uri} permanent
+}
+
+https://loft.45-59-102-76.sslip.io {
+    redir https://neon-loft-zyh.duckdns.org{uri} 308
+}
+https://ci.45-59-102-76.sslip.io {
+    redir https://neon-ci-zyh.duckdns.org{uri} 308
 }
