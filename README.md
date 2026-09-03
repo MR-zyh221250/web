@@ -26,7 +26,9 @@ npm run dev
 
 Dockerfile 使用 Node 构建、Nginx 提供页面，包含容器健康检查和静态素材缓存。TeamCity 配置位于 `.teamcity/settings.kts`，执行镜像构建、HTTP 检查和部署，部署失败时尝试回退上一版本。
 
-具体参数、服务器前提与操作步骤见 [部署说明](docs/DEPLOYMENT.md)。这些配置需要在目标服务器和实际 TeamCity 中验证后才能确认上线；目前没有已验证的生产地址。数据库和登录功能待后续接入。
+网站已部署至 http://45.59.102.76/ 。TeamCity 项目 `Neon Loft` 的 `Build and Deploy` 构建 #2 已成功完成 Git 拉取、Docker 构建、HTTP 检查及部署，对应提交 `37578ea`。VCS 触发器每分钟检查 main；推送新提交后自动触发的验收待下一次提交验证。
+
+具体参数和操作步骤见 [部署说明](docs/DEPLOYMENT.md)。客户管理的数据库和登录功能待后续接入。
 
 ## 源码与许可
 

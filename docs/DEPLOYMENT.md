@@ -4,7 +4,13 @@
 
 先部署现有 3D 入口和客户管理演示页，再完善后台、账号和数据库。当前客户数据仍在访问者浏览器的 localStorage 中，不会因为部署容器就变成共享数据库。
 
-配置预设：一台 Linux 网站服务器，在该服务器上运行专用 TeamCity Agent，使用同一台宿主机的 Docker。TeamCity Server 可以位于别处，也可以在资源允许时安装在同机。实际服务器情况尚待登录确认；本说明不代表已经部署成功。
+已部署环境：Ubuntu 24.04，Docker Engine 29.7.2、Compose 5.5.0、TeamCity 2026.2。网站、TeamCity Server、专用 Agent 在同一服务器。网站使用宿主机 80 端口，TeamCity 只绑定宿主机的 127.0.0.1:8111。
+
+2026-09-03：构建 #2 手动触发成功，用时约 31 秒，部署提交 `37578ea26ad744cdfafe6129994020f81dcba90d`，镜像 `neon-loft:build-2-37578ea26ad7`。服务健康、首页/管理页/纹理/署名文件检查通过。main 的 VCS 触发器已配置为每分钟检测；后续新提交自动触发尚待验收。
+
+TeamCity 项目 ID 为 `NeonLoft`，构建 ID 为 `NeonLoft_Build`。当前 UI 保存构建配置，仓库 `.teamcity` 是可重建的 Kotlin 定义，未开启配置双向同步；`ci/*.sh` 和网站代码在每次构建时从 GitHub 拉取。
+
+TeamCity 容器配置在服务器 `/opt/neon-teamcity/compose.yaml`，该目录 `.env` 固定了实际下载的镜像摘要。数据与 Agent 配置均使用 Docker 持久卷。当前 TeamCity 使用适合个人演示的内置 HSQLDB；正式长期使用应迁移外部数据库。
 
 流水线：GitHub main 提交 → TeamCity 拉取 → Docker 构建 → 临时容器健康及页面检查 → Docker Compose 更新网站 → 失败尝试回退。镜像保存在部署宿主机，无需额外镜像仓库。若 Agent 和网站分离到不同机器，必须先改为镜像仓库或镜像传输方案。
 
@@ -15,7 +21,7 @@
 - `docker/nginx.conf`：健康检查 `/healthz`、HTML 重新验证、带内容哈希的 JS/CSS 长缓存、固定名字素材缓存一小时。不存在的文件返回 404。
 - `ci/build.sh`：按 TeamCity 构建 ID 和 Git 提交生成镜像标签；验证首页、管理页、署名文件、纹理及 404。
 - `ci/deploy.sh`：部署锁、等待健康状态、失败恢复原镜像。首次上线失败则停止失败容器。
-- `.teamcity/settings.kts`：Kotlin DSL，两个顺序步骤，main 分支触发，同一构建配置最多一个并发任务。
+- `.teamcity/settings.kts` 与 `.teamcity/pom.xml`：TeamCity 2026.2 Kotlin DSL 与依赖，两个顺序步骤，main 分支触发，同一构建配置最多一个并发任务。
 
 ## 服务器准备
 
@@ -40,7 +46,7 @@ TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境�
 
 1. 先部署或确认 TeamCity Server，再连接并授权专用 Agent。
 2. 用户通过 GitHub Desktop 提交本次部署文件并推送到 `MR-zyh221250/web` 的 main。
-3. 在 TeamCity 从该仓库创建项目，导入 `.teamcity/settings.kts`。当前 DSL 版本为 `2025.11`；按实际 TeamCity 版本验证解析与兼容性。
+3. 重建项目时可导入 `.teamcity/settings.kts`，同时保留 `.teamcity/pom.xml` 提供依赖。DSL 版本为 `2026.2`。现有项目已通过 UI 配置，不要再次导入为另一个自动部署项目。
 4. 确认构建仅匹配目标 Linux Agent，工作目录包含完整 Git 检出。确认两个脚本依次执行，第二步仅在第一步成功后运行。
 5. 首次手动 Run，检查镜像构建、临时容器检查及部署日志。再通过服务器地址检查 3D 页面、客户页、纹理、缓存响应头和刷新行为。
 6. 再推送一次可见的小改动，验证 main 提交确实自动触发构建并更新网站。这一步通过后才算 CI/CD 跑通。
@@ -48,6 +54,20 @@ TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境�
 如果当前 TeamCity 不能直接解析 DSL，可按相同参数在 UI 中创建两个 Command Line 步骤：`sh ci/build.sh`、`sh ci/deploy.sh`；VCS root 指向该仓库 main，开启 VCS Trigger、限制并发为 1、添加上述 Agent requirements。不要同时保留两个会自动部署的重复构建配置。
 
 ## 本地或服务器手动试运行
+
+### 访问 TeamCity
+
+在 Windows 新开一个终端执行，并在提示时输入服务器密码：
+
+```sh
+ssh -N -o ServerAliveInterval=30 -L 127.0.0.1:18111:127.0.0.1:8111 root@45.59.102.76
+```
+
+保持终端连接，再访问 `http://127.0.0.1:18111/`。如果本机 18111 已由现有隧道监听，直接使用该页面即可。公网网站为 `http://45.59.102.76/`，不依赖本机隧道或电脑保持开机。
+
+本机验证 Kotlin 定义时需要 JDK 21、Maven 和上述隧道：在 `.teamcity` 目录运行 `mvn teamcity-configs:generate`。在服务器上运行则追加 `-Dteamcity.server.url=http://127.0.0.1:8111`。依赖仓库地址可通过该参数覆盖。
+
+### 手动运行网站容器
 
 以下是 Linux shell 示例，端口和镜像标签可按实际情况修改：
 
