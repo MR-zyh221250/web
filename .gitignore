@@ -1,0 +1,17 @@
+node_modules
+dist
+.vite
+.DS_Store
+*.log
+.env*
+.vercel/
+public/assets/hdri/*.exr
+public/assets/hdri/*.hdr
+public/assets/video/*.mp4
+public/assets/music/**
+.vercel
+
+# local dev scratch (breaks tsc, never ship) — all files except the gate-facing
+# audit module which is imported by both main.ts and tools/gate/check_wall_clip.mjs
+src/dev/*
+!src/dev/placement_audit.ts

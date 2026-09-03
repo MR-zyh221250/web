@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>客户销售管理 · NEON LOFT</title></head>
+<body><div class="layout"><aside><a class="brand" href="/">NEON<span>LOFT</span></a><p class="caption">客户销售工作台</p><nav><button data-view="customers" class="active">客户管理</button><button data-view="sales">销售记录</button></nav><a class="back" href="/">← 返回 3D 会客厅</a></aside>
+<main><header><div><p class="eyebrow">WORKSPACE / 工作台</p><h1>客户销售管理</h1></div><span class="mode">本机演示</span></header><p class="storage-note">数据仅保存在当前浏览器，不会同步到其他设备。</p>
+<div class="stats"><article><span>客户总数</span><strong id="customer-count">0</strong></article><article><span>销售笔数</span><strong id="sale-count">0</strong></article><article><span>累计销售额</span><strong id="sale-total">¥0.00</strong></article></div>
+<section class="panel"><div class="toolbar"><h2 id="section-title">客户管理</h2><div><input id="search" aria-label="搜索客户或销售记录" placeholder="搜索姓名、公司、电话…"><button id="add" class="primary">新增客户</button></div></div><p id="notice" role="status" aria-live="polite"></p><div class="table-wrap"><table><thead id="table-head"></thead><tbody id="table-body"></tbody></table></div><div id="empty" class="empty">从第一位客户开始。点击“新增客户”记录联系方式。</div></section>
+<footer>NEON LOFT · 每一次联系，都值得记录。</footer></main></div>
+<dialog id="editor"><form id="record-form"><div class="dialog-head"><h2 id="dialog-title">新增客户</h2><button type="button" id="close" aria-label="关闭">×</button></div><div id="fields"></div><p id="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel">取消</button><button type="submit" class="primary">保存</button></div></form></dialog>
+<dialog id="delete-dialog"><h2>删除记录</h2><p id="delete-prompt"></p><div class="dialog-actions"><button id="delete-cancel" type="button">取消</button><button id="delete-confirm" type="button" class="danger">确认删除</button></div></dialog><script type="module" src="/src/manage.ts"></script></body></html>
+

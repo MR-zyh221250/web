@@ -1,0 +1,34 @@
+{
+  "name": "cyberpunk-room",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Neon Loft — a browser-based interactive cyberpunk room built with Three.js, with desktop, mobile, and WebXR support.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "test": "for f in src/world/height_fog.test.ts src/engine/render_prefs.test.ts src/engine/quality_live.test.ts src/state/room_state.test.ts; do node --experimental-strip-types \"$f\" || exit 1; done && npm run test:placement && npm run test:pick && npm run test:input-owner && npm run test:override-merge",
+    "test:placement": "node --experimental-strip-types --loader ./tools/gate/ts-loader.mjs --import ./tools/gate/headless-globals.mjs tools/gate/placement_audit.test.ts",
+    "test:pick": "node --experimental-strip-types --loader ./tools/gate/ts-loader.mjs --import ./tools/gate/headless-globals.mjs tools/gate/editor_pick.test.ts",
+    "test:input-owner": "node --experimental-strip-types --loader ./tools/gate/ts-loader.mjs --import ./tools/gate/headless-globals.mjs tools/gate/input_owner.test.ts",
+    "test:override-merge": "node --experimental-strip-types --loader ./tools/gate/ts-loader.mjs --import ./tools/gate/headless-globals.mjs tools/gate/override_merge.test.ts",
+    "gate": "node --experimental-strip-types --loader ./tools/gate/ts-loader.mjs --import ./tools/gate/headless-globals.mjs ./tools/gate/check_wall_clip.mjs",
+    "gate:baseline": "node --experimental-strip-types --loader ./tools/gate/ts-loader.mjs --import ./tools/gate/headless-globals.mjs ./tools/gate/regen_baseline.mjs",
+    "verify": "npm run gate && npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "postprocessing": "^6.36.0",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "@webgpu/types": "^0.1.52",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true
+  }
+}
