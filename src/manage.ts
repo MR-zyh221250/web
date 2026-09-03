@@ -6,6 +6,15 @@ const key = 'neon-loft-crm-v1';
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const money = (cents: number) => (cents / 100).toLocaleString('zh-CN', { style: 'currency', currency: 'CNY' });
+// getRandomValues also works when the demo is served over HTTP on a server IP.
+function createRecordId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+}
 let data: Data = { customers: [], sales: [] };
 let storageReadable = true;
 try {
@@ -112,7 +121,7 @@ $('record-form').addEventListener('submit', event => {
   const form = new FormData(event.target as HTMLFormElement);
   const get = (name: string) => String(form.get(name) ?? '').trim();
   const next = structuredClone(data);
-  const id = editing ?? crypto.randomUUID();
+  const id = editing ?? createRecordId();
   if (view === 'customers') {
     if (!get('name')) { $('form-error').textContent = '请输入客户姓名。'; return; }
     const customer = { id, name: get('name'), company: get('company'), phone: get('phone'), status: get('status') };
