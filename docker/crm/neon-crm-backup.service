@@ -1,0 +1,7 @@
+[Unit]
+Description=Neon Loft CRM MySQL backup
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /opt/neon-crm/backup.sh

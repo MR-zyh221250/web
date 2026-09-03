@@ -33,3 +33,9 @@ fi
 printf '%s\n' "$image" > .ci-output/image.txt
 printf 'commit=%s\nimage=%s\n' "$revision" "$image" > .ci-output/release.txt
 echo 'Image build and HTTP smoke checks passed.'
+
+export NEON_API_IMAGE="neon-loft-api:build-${NEON_BUILD_ID}-${short_revision}"
+docker build --pull --label "org.opencontainers.image.revision=$revision" -t "$NEON_API_IMAGE" backend
+sh ci/test-api.sh
+printf '%s\n' "$NEON_API_IMAGE" > .ci-output/api-image.txt
+printf 'api_image=%s\n' "$NEON_API_IMAGE" >> .ci-output/release.txt

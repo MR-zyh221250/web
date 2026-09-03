@@ -1,0 +1,52 @@
+name: neon-crm
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: ["--innodb-buffer-pool-size=256M", "--max-connections=40", "--performance-schema=OFF", "--mysqlx=OFF"]
+    environment:
+      MYSQL_DATABASE: neon
+      MYSQL_USER: neon
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+    secrets: [db_password, db_root_password]
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$(cat /run/secrets/db_password) mysql -h127.0.0.1 -uneon neon -e 'SELECT 1' >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  api:
+    image: ${NEON_API_IMAGE:?Set the tested API image}
+    restart: unless-stopped
+    depends_on:
+      db: {condition: service_healthy}
+    environment:
+      DB_HOST: db
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      PUBLIC_ORIGIN: https://loft.45-59-102-76.sslip.io
+      COOKIE_SECURE: "true"
+      NODE_OPTIONS: --max-old-space-size=192
+    ports: ["127.0.0.1:3000:3000"]
+    secrets: [db_password]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+volumes:
+  mysql-data:
+secrets:
+  db_password:
+    file: /opt/neon-crm/secrets/db-password
+  db_root_password:
+    file: /opt/neon-crm/secrets/db-root-password

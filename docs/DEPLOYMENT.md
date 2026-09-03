@@ -2,17 +2,17 @@
 
 ## 当前范围
 
-先部署现有 3D 入口和客户管理演示页，再完善后台、账号和数据库。当前客户数据仍在访问者浏览器的 localStorage 中，不会因为部署容器就变成共享数据库。
+现已接入 Node.js 后端、MySQL 8.4、登录与管理员/销售员权限。客户数据保存到服务器，旧 localStorage 演示数据不会自动迁入数据库。详细说明见 [CRM 使用与运维](CRM.md)。
 
-已部署环境：Ubuntu 24.04，Docker Engine 29.7.2、Compose 5.5.0、TeamCity 2026.2。网站、TeamCity Server、专用 Agent 在同一服务器。网站使用宿主机 80 端口，TeamCity 只绑定宿主机的 127.0.0.1:8111。
+已部署环境：Ubuntu 24.04，Docker Engine 29.7.2、Compose 5.5.0、TeamCity 2026.2。网站、TeamCity Server、专用 Agent 在同一服务器。Caddy 对外提供 80/443 端口；网站绑定 127.0.0.1:8080，TeamCity 的 127.0.0.1:8111 用于内部访问，127.0.0.1:8112 专用于 HTTPS 反向代理。
 
-2026-09-03：构建 #2 手动触发成功，用时约 31 秒，部署提交 `37578ea26ad744cdfafe6129994020f81dcba90d`，镜像 `neon-loft:build-2-37578ea26ad7`。服务健康、首页/管理页/纹理/署名文件检查通过。main 的 VCS 触发器已配置为每分钟检测；后续新提交自动触发尚待验收。
+2026-09-03：构建 #2 手动触发成功，用时约 31 秒，部署提交 `37578ea26ad744cdfafe6129994020f81dcba90d`，镜像 `neon-loft:build-2-37578ea26ad7`。服务健康、首页/管理页/纹理/署名文件检查通过。main 的 VCS 触发器已配置为每分钟检测；后续构建 #3 已成功部署提交 `c79d2d1a3808`。
 
 TeamCity 项目 ID 为 `NeonLoft`，构建 ID 为 `NeonLoft_Build`。当前 UI 保存构建配置，仓库 `.teamcity` 是可重建的 Kotlin 定义，未开启配置双向同步；`ci/*.sh` 和网站代码在每次构建时从 GitHub 拉取。
 
 TeamCity 容器配置在服务器 `/opt/neon-teamcity/compose.yaml`，该目录 `.env` 固定了实际下载的镜像摘要。数据与 Agent 配置均使用 Docker 持久卷。当前 TeamCity 使用适合个人演示的内置 HSQLDB；正式长期使用应迁移外部数据库。
 
-流水线：GitHub main 提交 → TeamCity 拉取 → Docker 构建 → 临时容器健康及页面检查 → Docker Compose 更新网站 → 失败尝试回退。镜像保存在部署宿主机，无需额外镜像仓库。若 Agent 和网站分离到不同机器，必须先改为镜像仓库或镜像传输方案。
+流水线：GitHub main 提交 → TeamCity 拉取 → 前后端 Docker 构建 → 页面检查及隔离 MySQL 集成测试 → 数据库备份 → Docker Compose 更新后端和网站 → 失败尝试回退。镜像保存在部署宿主机，无需额外镜像仓库。若 Agent 和网站分离到不同机器，必须先改为镜像仓库或镜像传输方案。
 
 ## 文件
 
@@ -34,13 +34,13 @@ Agent 的环境变量必须配置为：
 | 参数 | 值 / 说明 |
 | --- | --- |
 | `NEON_DEPLOY_TARGET` | `neon-loft-production`，用于筛选专用 Agent |
-| `NEON_HTTP_PORT` | 登录服务器后确认的空闲端口，例如 `8080` |
-| `NEON_BIND_ADDRESS` | 可选，默认 `0.0.0.0`；使用本机反向代理时可设 `127.0.0.1` |
+| `NEON_HTTP_PORT` | 当前为 `8080`，由 Caddy 转发 |
+| `NEON_BIND_ADDRESS` | 当前为 `127.0.0.1`，供本机反向代理访问 |
 | `NEON_DEPLOY_STATE_DIR` | Agent 内可写且持久化的目录，例如 `/data/neon-loft-deploy`；容器化 Agent 时需挂载持久卷 |
 
 TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境变量运行。`env.NEON_BUILD_ID` 由构建配置自动设置。不要将密码、SSH 私钥或访问令牌提交到 Git。
 
-6 GB 服务器如需同时运行 TeamCity Server 与 Agent，应限制 JVM 堆和并发数，观察实际内存后再安排数据库。此阶段无需安装 MySQL。
+6 GB 服务器如需同时运行 TeamCity Server 与 Agent，应限制 JVM 堆和并发数，观察实际内存后再安排数据库。目前 MySQL 独立容器限制为 768 MB，API 限制为 256 MB。
 
 ## TeamCity 接入
 
@@ -55,7 +55,13 @@ TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境�
 
 ## 本地或服务器手动试运行
 
-### 访问 TeamCity
+### 通过域名访问
+
+3D 网站：https://loft.45-59-102-76.sslip.io/ 。TeamCity：https://ci.45-59-102-76.sslip.io/ ，使用已创建的账号登录，无需 SSH 隧道。客户管理演示地址为网站域名下的 `/manage.html`。
+
+配置、备份与维护见 [反向代理说明](../docker/reverse-proxy/README.md)。证书自动续期。切换到 HTTPS 域名后，原 HTTP IP 下的浏览器 localStorage 数据不会自动迁移。
+
+### SSH 隧道备用访问 TeamCity
 
 在 Windows 新开一个终端执行，并在提示时输入服务器密码：
 
@@ -63,7 +69,7 @@ TeamCity 中应显示对应的 `env.*` Agent 参数。脚本通过这些环境�
 ssh -N -o ServerAliveInterval=30 -L 127.0.0.1:18111:127.0.0.1:8111 root@45.59.102.76
 ```
 
-保持终端连接，再访问 `http://127.0.0.1:18111/`。如果本机 18111 已由现有隧道监听，直接使用该页面即可。公网网站为 `http://45.59.102.76/`，不依赖本机隧道或电脑保持开机。
+保持终端连接，再访问 `http://127.0.0.1:18111/`。如果本机 18111 已由现有隧道监听，直接使用该页面即可。公网网站为 `https://loft.45-59-102-76.sslip.io/`，原 IP 地址自动跳转。网站与 TeamCity 的公网 HTTPS 访问均不依赖本机隧道或电脑保持开机。
 
 本机验证 Kotlin 定义时需要 JDK 21、Maven 和上述隧道：在 `.teamcity` 目录运行 `mvn teamcity-configs:generate`。在服务器上运行则追加 `-Dteamcity.server.url=http://127.0.0.1:8111`。依赖仓库地址可通过该参数覆盖。
 
