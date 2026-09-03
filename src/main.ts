@@ -29,7 +29,6 @@ import { saveOverride, needsReload } from './engine/quality';
 import { buildVolumetric } from './engine/volumetric';
 import { DepthOfFieldEffect, EffectPass } from 'postprocessing';
 import { t, mountLangToggle } from './lib/i18n';
-import { mountCredits } from './lib/credits';
 import {
   runPlacementAudit as _runPlacementAudit,
   formatAuditReport as _formatAuditReport,
@@ -541,16 +540,16 @@ async function boot() {
   // Names are stored as i18n keys (mood.*); the 'zh' values are used as state IDs
   // in RoomState so the share URL remains language-neutral.
   const MOODS: Array<{ name: string; amb: number; hemi: number; fix: number[] }> = [
-    { name: '標準', amb: 1, hemi: 1, fix: [1, 1, 1, 1, 1, 1, 1] },
-    { name: '閱讀', amb: 1.35, hemi: 1.2, fix: [1.7, 0.5, 1.4, 1.2, 1.5, 0.4, 0.5] },
+    { name: '标准', amb: 1, hemi: 1, fix: [1, 1, 1, 1, 1, 1, 1] },
+    { name: '阅读', amb: 1.35, hemi: 1.2, fix: [1.7, 0.5, 1.4, 1.2, 1.5, 0.4, 0.5] },
     { name: '影院', amb: 0.35, hemi: 0.3, fix: [0.12, 1.3, 0.15, 0.8, 0.3, 1.3, 1.2] },
-    { name: '派對', amb: 0.55, hemi: 0.5, fix: [0.7, 1.5, 0.6, 1.4, 0.6, 1.6, 1.5] },
+    { name: '派对', amb: 0.55, hemi: 0.5, fix: [0.7, 1.5, 0.6, 1.4, 0.6, 1.6, 1.5] },
     { name: '全暗', amb: 0.15, hemi: 0.12, fix: [0, 0.25, 0, 0.2, 0, 0.3, 0.25] },
   ];
   // Map zh mood name → i18n display label
   const MOOD_I18N: Record<string, string> = {
-    '標準': 'mood.standard', '閱讀': 'mood.reading',
-    '影院': 'mood.cinema', '派對': 'mood.party', '全暗': 'mood.dark',
+    '标准': 'mood.standard', '阅读': 'mood.reading',
+    '影院': 'mood.cinema', '派对': 'mood.party', '全暗': 'mood.dark',
   };
   let moodIdx = 0;
   const baseColors = lights.fixtures.map((f) => f.color.clone());
@@ -1211,8 +1210,7 @@ async function boot() {
 
   // mount language toggle button (top-right corner)
   mountLangToggle();
-  // mount credits / attribution panel button (left of the language toggle)
-  mountCredits();
+  // Asset sources and licenses are preserved in public/project-notes.txt.
 
   // hide boot screen
   step(1.0);
@@ -1526,7 +1524,7 @@ async function boot() {
       }
     }
     // party mood: slow hue sweep on the accent fixtures
-    if (MOODS[moodIdx].name === '派對') {
+    if (MOODS[moodIdx].name === '派对') {
       partyHue.setHSL((t * 0.08) % 1, 1, 0.55);
       lights.fixtures[1]?.color.copy(partyHue);          // under-stair wash
       if (lights.fixtures[5]) {

@@ -631,7 +631,7 @@ export class CyberOS {
         this.openViola();
         return t('term.viola');
       case 'bgm':
-        if (arg === 'next') return `> 切換電台 → ${this.ytNext(1)}`;
+        if (arg === 'next') return `> 切换电台 → ${this.ytNext(1)}`;
         return `> BGM ${this.ytToggle()}`;
       case 'stats': {
         const s = this.api.getStats();
@@ -739,7 +739,7 @@ export class CyberOS {
   // ---------------- 藏書閣 (public-domain library reader) ----------------
 
   openLibrary(selectId?: number): OSWindow {
-    const win = this.makeWindow('library', '藏書閣 // PUBLIC ARCHIVE', 780, 540, 180, 30);
+    const win = this.makeWindow('library', '藏书阁 // PUBLIC ARCHIVE', 780, 540, 180, 30);
     if (win.body.childElementCount > 0) {
       if (selectId !== undefined) {
         (win.body.querySelector(`.bk[data-id="${selectId}"]`) as HTMLElement | null)?.click();
@@ -810,7 +810,7 @@ export class CyberOS {
   private metQuery = '';
 
   openGallery(): OSWindow {
-    const win = this.makeWindow('gallery', '畫廊 // ART VAULT', 720, 560, 240, 20);
+    const win = this.makeWindow('gallery', '画廊 // ART VAULT', 720, 560, 240, 20);
     if (win.body.childElementCount > 0) return win;
     win.body.innerHTML = `
       <div class="gallery">
@@ -879,7 +879,7 @@ export class CyberOS {
   // ---------------- 私人錄音 (family viola recordings) ----------------
 
   openViola(): OSWindow {
-    const win = this.makeWindow('viola', '私人錄音 // VIOLA.ARCHIVE', 560, 420, 300, 80);
+    const win = this.makeWindow('viola', '私人录音 // VIOLA.ARCHIVE', 560, 420, 300, 80);
     if (win.body.childElementCount > 0) return win;
     win.body.innerHTML = `
       <div class="mail" style="flex-direction:column;">
@@ -917,7 +917,7 @@ export class CyberOS {
   // ---------------- DEV.LOG (easter egg) ----------------
 
   openDevlog(): OSWindow {
-    const win = this.makeWindow('devlog', 'DEV.LOG // 造屋者終端', 640, 500, 260, 50);
+    const win = this.makeWindow('devlog', 'DEV.LOG // 造屋者终端', 640, 500, 260, 50);
     if (win.body.childElementCount > 0) return win;
     const log = `
 [BUILD RECORD — NEON LOFT]
@@ -940,7 +940,7 @@ Status   : STILL UNDER CONSTRUCTION — and happily so.
 + 260 towers → rivers of traffic light → holo billboards
 [INCIDENT-002] Owner: "A bookcase is blocking the stairs."
   The culprit was actually the vending machine. It has been
-  exiled to the arcade corner, where it sells 飲料 in peace.
+  exiled to the arcade corner, where it sells 饮料 in peace.
 [INCIDENT-003] "There's a strange black ball in the sky."
   Identified: an unpowered advertising blimp. Fitted with
   cabin lights and a NEON COLA board. Now a lawful aircraft.

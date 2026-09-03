@@ -1167,10 +1167,10 @@ export function buildRoom(ctx: EngineCtx): RoomBuild {
     ctx.textBaseline = 'middle';
     ctx.shadowColor = '#5af2ff';
     ctx.shadowBlur = 32;
-    ctx.fillText('夢', 128, 138);
+    ctx.fillText('梦', 128, 138);
     // pass again — multiple shadowed strokes deepen the bloom
     ctx.shadowBlur = 12;
-    ctx.fillText('夢', 128, 138);
+    ctx.fillText('梦', 128, 138);
     const tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
     const dream = new THREE.Mesh(
@@ -1303,9 +1303,9 @@ export function buildRoom(ctx: EngineCtx): RoomBuild {
     g.fillStyle = 'rgba(255,225,77,.9)';
     if (realWeather) {
       g.fillText(`${realWeather.city} ${realWeather.tempC.toFixed(0)}°C ${realWeather.desc}`, 22, 106);
-      g.fillText(`濕度 ${realWeather.humidity}%`, 22, 124);
+      g.fillText(`湿度 ${realWeather.humidity}%`, 22, 124);
     } else {
-      g.fillText(realWeatherFailed ? '⛔ 連線被 ICE 攔截' : '定位中…', 22, 106);
+      g.fillText(realWeatherFailed ? '⛔ 连线被 ICE 拦截' : '定位中…', 22, 106);
     }
     // rotating local headline
     g.fillStyle = 'rgba(255,43,219,.85)';
@@ -1318,12 +1318,12 @@ export function buildRoom(ctx: EngineCtx): RoomBuild {
       g.fillText(title.slice(0, 17), 20, 178);
       if (title.length > 17) g.fillText(title.slice(17, 34), 20, 196);
     } else {
-      g.fillText('擷取當地新聞中…', 20, 178);
+      g.fillText('撷取当地新闻中…', 20, 178);
     }
     g.fillStyle = 'rgba(255,43,219,.6)';
     g.font = '12px monospace';
-    g.fillText('義體狀態 OK · 心率 -- bpm', 20, 310);
-    g.fillText('REFLECT//v2 鏡像同步中', 20, 330);
+    g.fillText('义体状态 OK · 心率 -- bpm', 20, 310);
+    g.fillText('REFLECT//v2 镜像同步中', 20, 330);
     mirrorTex.needsUpdate = true;
   };
   drawMirror();
@@ -1798,11 +1798,11 @@ export function buildRoom(ctx: EngineCtx): RoomBuild {
   // open rail with the actual outfits — each is a stylized jacket built from
   // primitives. Five distinct silhouettes match the OUTFITS list below.
   const OUTFITS: Array<[number, number, string, 'biker' | 'trench' | 'military' | 'hooded' | 'kimono']> = [
-    [0x141a28, 0x5af2ff, '夜行黑 × 電氣青 (機車夾克)', 'biker'],
-    [0x2a1230, 0xff2bdb, '暗紫 × 霓紅粉 (長版風衣)', 'trench'],
-    [0x2e2618, 0xffd24d, '軍墨 × 鍍金 (軍式大衣)', 'military'],
-    [0x102218, 0x39ff88, '叢林綠 × 駭客綠 (連帽外套)', 'hooded'],
-    [0x301518, 0xff5566, '猩紅 × 警示紅 (霓虹和服)', 'kimono'],
+    [0x141a28, 0x5af2ff, '夜行黑 × 电气青 (机车夹克)', 'biker'],
+    [0x2a1230, 0xff2bdb, '暗紫 × 霓红粉 (长版风衣)', 'trench'],
+    [0x2e2618, 0xffd24d, '军墨 × 镀金 (军式大衣)', 'military'],
+    [0x102218, 0x39ff88, '丛林绿 × 骇客绿 (连帽外套)', 'hooded'],
+    [0x301518, 0xff5566, '猩红 × 警示红 (霓虹和服)', 'kimono'],
   ];
 
   const buildJacket = (type: typeof OUTFITS[0][3], suit: number, accent: number): THREE.Group => {
@@ -2159,7 +2159,7 @@ function makeVendingTexture(): THREE.CanvasTexture {
     }
     g.fillStyle = '#ff2bdb'; g.fillRect(16, 340, 224, 60);
     g.fillStyle = '#05060a'; g.font = 'bold 36px sans-serif'; g.textAlign = 'center';
-    g.fillText('飲料', 128, 382);
+    g.fillText('饮料', 128, 382);
   });
 }
 

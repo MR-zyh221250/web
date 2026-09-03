@@ -38,7 +38,7 @@ export interface PropsRig {
 }
 
 const NEON_COLORS: Array<[number, string]> = [
-  [0xff2bdb, '霓紅粉'], [0x5af2ff, '電氣青'], [0xb44dff, '夜紫'], [0xff8a3d, '落日橘'], [0x39ff88, '駭客綠'],
+  [0xff2bdb, '霓红粉'], [0x5af2ff, '电气青'], [0xb44dff, '夜紫'], [0xff8a3d, '落日橘'], [0x39ff88, '骇客绿'],
 ];
 
 export function buildProps(ctx: EngineCtx): PropsRig {
@@ -94,7 +94,7 @@ export function buildProps(ctx: EngineCtx): PropsRig {
   tvTex.colorSpace = THREE.SRGBColorSpace;
   let tvChannel = 0; // 0 CRT scan (default), 1 static, 2 ad loop, 3 city spectrum
   // Stable IDs used in RoomState/URL — do not translate
-  const tvNames = ['CRT 軌道追蹤', '雜訊', '廣告', '城市頻譜'] as const;
+  const tvNames = ['CRT 轨道追踪', '杂讯', '广告', '城市频谱'] as const;
   // Display labels (translated) for terminal output
   const tvLabels = () => [i18n('tv.ch.crt'), i18n('tv.ch.noise'), i18n('tv.ch.ad'), i18n('tv.ch.spectrum')];
   // the projector: a slim picture-frame on the wall
@@ -321,7 +321,7 @@ export function buildProps(ctx: EngineCtx): PropsRig {
       tvG.fillStyle = '#0a0614'; tvG.fillRect(0, 0, 192, 108);
       tvG.fillStyle = ['#ff2bdb', '#5af2ff', '#ffe14d'][Math.floor(Date.now() / 900) % 3];
       tvG.font = 'bold 26px sans-serif'; tvG.textAlign = 'center'; tvG.textBaseline = 'alphabetic';
-      tvG.fillText(['買!', 'NEON', '雨夜'][Math.floor(Date.now() / 900) % 3], 96, 62);
+      tvG.fillText(['买!', 'NEON', '雨夜'][Math.floor(Date.now() / 900) % 3], 96, 62);
     } else {
       tvG.fillStyle = '#060a14'; tvG.fillRect(0, 0, 192, 108);
       tvG.fillStyle = '#5af2ff';
@@ -422,7 +422,7 @@ export function buildProps(ctx: EngineCtx): PropsRig {
 
   // ---------- color-cycling neon wall sign (above sofa, back wall) ----------
   let neonIdx = 0;
-  const signTex = makeNeonSignTexture('夜貓');
+  const signTex = makeNeonSignTexture('夜猫');
   const neonSign = new THREE.Mesh(
     new THREE.PlaneGeometry(1.8, 0.7),
     new THREE.MeshStandardMaterial({
@@ -754,7 +754,7 @@ export function buildProps(ctx: EngineCtx): PropsRig {
     sparks.push(s);
   }
   const holoChannels: Array<[string, THREE.Group | null]> = [
-    ['OFF', null], ['地球儀', chGlobe], ['微縮城市', chCity], ['核心水晶', chGem],
+    ['OFF', null], ['地球仪', chGlobe], ['微缩城市', chCity], ['核心水晶', chGem],
   ];
   for (const [, g] of holoChannels) {
     if (g) { g.position.set(HOLO_X, HOLO_Y, HOLO_Z); g.visible = false; group.add(g); }

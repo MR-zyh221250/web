@@ -20,22 +20,22 @@ interface AdTemplate {
 }
 
 const TEMPLATES: AdTemplate[] = [
-  { bg: '#160520', accent: '#ff2bdb', big: '夜貓',  small: 'NOODLE 24H',         style: 'block'  },
-  { bg: '#02060c', accent: '#5af2ff', big: 'ORC-9', small: '腦插義體 0%',          style: 'banner' },
+  { bg: '#160520', accent: '#ff2bdb', big: '夜猫',  small: 'NOODLE 24H',         style: 'block'  },
+  { bg: '#02060c', accent: '#5af2ff', big: 'ORC-9', small: '脑插义体 0%',          style: 'banner' },
   { bg: '#1a0a0a', accent: '#ff8a3d', big: 'NEON',  small: 'COLA®',              style: 'block'  },
-  { bg: '#0a1a0a', accent: '#39ff88', big: '駭客',  small: 'TOOLS / 工具',       style: 'banner' },
-  { bg: '#2a0a3a', accent: '#b44dff', big: '夢',    small: 'DREAM CLINIC',        style: 'scan'   },
-  { bg: '#0a1212', accent: '#ffe14d', big: '雨',    small: '雨夜計程車 24H',      style: 'block'  },
-  { bg: '#16080a', accent: '#ff5566', big: 'BUY!',  small: '今日特價 -40%',       style: 'glitch' },
+  { bg: '#0a1a0a', accent: '#39ff88', big: '骇客',  small: 'TOOLS / 工具',       style: 'banner' },
+  { bg: '#2a0a3a', accent: '#b44dff', big: '梦',    small: 'DREAM CLINIC',        style: 'scan'   },
+  { bg: '#0a1212', accent: '#ffe14d', big: '雨',    small: '雨夜计程车 24H',      style: 'block'  },
+  { bg: '#16080a', accent: '#ff5566', big: 'BUY!',  small: '今日特价 -40%',       style: 'glitch' },
   { bg: '#020812', accent: '#88c8ff', big: '虹',    small: 'IRIS NEURAL',         style: 'scan'   },
   { bg: '#0c0408', accent: '#ff4499', big: 'NEKO',  small: 'CAT CAFÉ B1',         style: 'banner' },
-  { bg: '#06141c', accent: '#5af2ff', big: '電子',  small: 'CYBER 義肢',           style: 'block'  },
-  { bg: '#1a1006', accent: '#ffb050', big: '燒酒',  small: '夜九折',              style: 'block'  },
+  { bg: '#06141c', accent: '#5af2ff', big: '电子',  small: 'CYBER 义肢',           style: 'block'  },
+  { bg: '#1a1006', accent: '#ffb050', big: '烧酒',  small: '夜九折',              style: 'block'  },
   { bg: '#04060a', accent: '#88ff88', big: 'V.N',   small: 'NETRUN OS 9.1',       style: 'ticker' },
   { bg: '#220414', accent: '#ff80c8', big: '舞',    small: 'NIGHT DANCE',         style: 'glitch' },
-  { bg: '#0a0a12', accent: '#80ffff', big: 'HACK',  small: '駭入服務',             style: 'banner' },
-  { bg: '#0c1004', accent: '#aaff44', big: '麵',    small: 'RAMEN 拉麵',          style: 'block'  },
-  { bg: '#160808', accent: '#ff6644', big: 'SUSHI', small: '回轉壽司',             style: 'block'  },
+  { bg: '#0a0a12', accent: '#80ffff', big: 'HACK',  small: '骇入服务',             style: 'banner' },
+  { bg: '#0c1004', accent: '#aaff44', big: '面',    small: 'RAMEN 拉面',          style: 'block'  },
+  { bg: '#160808', accent: '#ff6644', big: 'SUSHI', small: '回转寿司',             style: 'block'  },
 ];
 
 // drawing helpers per style — kept inline so the whole module stays self-
@@ -111,7 +111,7 @@ function drawTicker(g: CanvasRenderingContext2D, t: AdTemplate, w: number, h: nu
   g.textAlign = 'left'; g.textBaseline = 'top';
   g.fillText(t.big, 6, 4);
   // ticker scroll
-  const tickText = `${t.small}  ·  ↑12.4%  ·  ${t.big}NET  ·  系統正常  ·  `;
+  const tickText = `${t.small}  ·  ↑12.4%  ·  ${t.big}NET  ·  系统正常  ·  `;
   const fullText = tickText.repeat(4);
   const tickFont = `${Math.floor(h * 0.24)}px "Share Tech Mono", monospace`;
   g.font = tickFont;

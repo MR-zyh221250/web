@@ -30,6 +30,6 @@ npm run dev
 
 3D 项目：https://github.com/klmtseng/cyberpunk-room
 
-基于下载时的 main 分支，原说明见 README.upstream.md。代码保留 klmtseng 的 MIT 许可，场景素材许可与来源见 THIRD_PARTY_ASSETS.md 和场景内的“授權”面板。
+基于下载时的 main 分支，原说明见 README.upstream.md。代码保留 klmtseng 的 MIT 许可，场景素材许可与来源见 THIRD_PARTY_ASSETS.md 以及管理页底部“项目说明”（public/project-notes.txt）。
 
 自定义入口位于 src/entry.ts、src/entry.css；客户管理位于 manage.html、src/manage.ts、src/manage.css。原灯牌版已备份在此仓库外。
