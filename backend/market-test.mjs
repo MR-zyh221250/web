@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import sharp from 'sharp';
 const base='http://127.0.0.1:3000/api',origin='http://test.local';
 function client(){let cookie='';return async(path,method='GET',body,status=200)=>{const r=await fetch(base+path,{method,headers:{Origin:origin,Cookie:cookie,...(body!==undefined?{'Content-Type':'application/json'}:{})},body:body===undefined?undefined:JSON.stringify(body)});if(r.headers.get('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];const d=await r.json();assert.equal(r.status,status,`${method} ${path}: ${JSON.stringify(d)}`);return d;};}
-const admin=client(),shop=client(),other=client(),guest=client(),anon=client();
+const admin=client(),shop=client(),other=client(),unicodeShop=client(),guest=client(),anon=client();
 await admin('/login','POST',{username:'admin',password:'TestChanged123!'});
-await admin('/users','POST',{username:'店铺1',name:'店主甲',role:'shop',password:'ShopInitial123!'},201);
+await admin('/users','POST',{username:'shop_one',name:'店主甲',role:'shop',password:'ShopInitial123!'},201);
 await admin('/users','POST',{username:'shop_two',name:'店主乙',role:'shop',password:'ShopInitial123!'},201);
-for(const [c,n] of [[shop,'店铺1'],[other,'shop_two']]){await c('/login','POST',{username:n,password:'ShopInitial123!'});await c('/password','POST',{oldPassword:'ShopInitial123!',newPassword:'ShopChanged123!'});await c('/login','POST',{username:n,password:'ShopChanged123!'});}
+await admin('/users','POST',{username:'店铺1',name:'中文账号测试',role:'shop',password:'ShopInitial123!'},201);
+for(const [c,n] of [[shop,'shop_one'],[other,'shop_two'],[unicodeShop,'店铺1']]){await c('/login','POST',{username:n,password:'ShopInitial123!'});await c('/password','POST',{oldPassword:'ShopInitial123!',newPassword:'ShopChanged123!'});await c('/login','POST',{username:n,password:'ShopChanged123!'});}
 await shop('/data','GET',undefined,403);
 const info={name:'测试店铺',nameEn:'Test shop',description:'店铺介绍',descriptionEn:'About us',phone:'123456',wechat:'test',address:'测试地址'};
 const administrator=(await admin('/me')).user;
