@@ -67,7 +67,7 @@ app.use('/api',async(req,res,next)=>{
  if(!u) return res.status(401).json({error:'登录已过期，请重新登录。'});
  req.user=u;req.tokenHash=hash(token);next();
 });
-app.get('/api/me',(req,res)=>res.json({user:publicUser(req.user)}));
+app.get('/api/me',async(req,res)=>{const user=publicUser(req.user);if(req.user.role==='customer'){const [[c]]=await pool.execute('SELECT c.id AS customerId,c.phone,c.version AS customerVersion,v.media_id AS avatarId FROM customer_accounts ca JOIN customers c ON c.id=ca.customer_id LEFT JOIN customer_avatars v ON v.customer_id=c.id WHERE ca.user_id=?',[req.user.id]);Object.assign(user,c||{});}res.json({user});});
 app.post('/api/logout',async(req,res)=>{await pool.execute('DELETE FROM sessions WHERE token_hash=?',[req.tokenHash]);res.clearCookie('neon_session',cookieOptions).json({ok:true});});
 app.post('/api/password',async(req,res)=>{
  throttle('password:'+req.user.id,10);

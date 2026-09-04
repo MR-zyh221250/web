@@ -45,7 +45,7 @@ export function privateMarket(app,{pool,fail,text,transaction,versionCheck}){
  async function imageAllowed(c,id,user,purpose){const [[m]]=await c.execute('SELECT id,owner_id,purpose FROM media WHERE id=?',[id]);if(!m||m.purpose!==purpose||(user.role!=='admin'&&m.owner_id!==user.id))fail(400,'图片无效或无权使用。');}
  app.post('/api/media',async(req,res)=>{
   const purpose=req.body?.purpose;
-  if(!['avatar','advert'].includes(purpose)||(req.user.role==='shop'&&purpose!=='advert')||(req.user.role==='sales'&&purpose!=='avatar'))fail(403,'无权上传此类图片。');
+  if(!['avatar','advert'].includes(purpose)||(req.user.role==='shop'&&purpose!=='advert')||(req.user.role==='sales'&&purpose!=='avatar')||(req.user.role==='customer'&&purpose!=='avatar'))fail(403,'无权上传此类图片。');
   const value=req.body?.data;if(typeof value!=='string'||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(value)||value.length>1500000)fail(400,'请选择不超过 1 MB 的 JPG、PNG 或 WebP 图片。');
   const [[{count}]]=await pool.execute('SELECT COUNT(*) count FROM media WHERE owner_id=? AND created_at>DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)',[req.user.id]);
   if(count>=200)fail(429,'今日图片上传次数已达上限。');
@@ -54,14 +54,15 @@ export function privateMarket(app,{pool,fail,text,transaction,versionCheck}){
   const id=randomUUID();await pool.execute('INSERT INTO media(id,owner_id,purpose,bytes) VALUES(?,?,?,?)',[id,req.user.id,purpose,bytes]);res.status(201).json({id});
  });
  app.get('/api/media/:id',async(req,res)=>{
-  const [[m]]=await pool.execute(`SELECT m.* FROM media m WHERE m.id=? AND (?='admin' OR (m.owner_id=? AND (m.purpose='advert' OR NOT EXISTS(SELECT 1 FROM customer_avatars attached WHERE attached.media_id=m.id))) OR EXISTS(SELECT 1 FROM customer_avatars v JOIN customers c ON c.id=v.customer_id WHERE v.media_id=m.id AND c.owner_id=?) OR EXISTS(SELECT 1 FROM adverts a JOIN shops s ON s.id=a.shop_id WHERE s.owner_id=? AND JSON_CONTAINS(a.images,JSON_QUOTE(m.id))))`,[req.params.id,req.user.role,req.user.id,req.user.id,req.user.id]);
+  const [[m]]=await pool.execute(`SELECT m.* FROM media m WHERE m.id=? AND (?='admin' OR (m.owner_id=? AND (m.purpose='advert' OR NOT EXISTS(SELECT 1 FROM customer_avatars attached WHERE attached.media_id=m.id))) OR EXISTS(SELECT 1 FROM customer_avatars v JOIN customer_accounts ca ON ca.customer_id=v.customer_id WHERE v.media_id=m.id AND ca.user_id=?) OR EXISTS(SELECT 1 FROM customer_avatars v JOIN customers c ON c.id=v.customer_id WHERE v.media_id=m.id AND c.owner_id=?) OR EXISTS(SELECT 1 FROM adverts a JOIN shops s ON s.id=a.shop_id WHERE s.owner_id=? AND JSON_CONTAINS(a.images,JSON_QUOTE(m.id))))`,[req.params.id,req.user.role,req.user.id,req.user.id,req.user.id,req.user.id]);
   if(!m)fail(404,'图片不存在或无权访问。');res.type('jpeg').send(m.bytes);
  });
  app.put('/api/customers/:id/avatar',async(req,res)=>{
   if(req.user.role==='shop')fail(403,'无权管理客户。');
   await transaction(async c=>{
    const [[row]]=await c.execute('SELECT * FROM customers WHERE id=? FOR UPDATE',[req.params.id]);
-   if(!row||(req.user.role!=='admin'&&row.owner_id!==req.user.id))fail(404,'客户不存在。');versionCheck(req.body,row);
+   const self=req.user.role==='customer'&&(await c.execute('SELECT customer_id FROM customer_accounts WHERE user_id=?',[req.user.id]))[0].some(x=>x.customer_id===row?.id);
+   if(!row||(req.user.role!=='admin'&&row.owner_id!==req.user.id&&!self))fail(404,'客户不存在。');versionCheck(req.body,row);
    const id=req.body.mediaId;
    if(id){await imageAllowed(c,id,req.user,'avatar');await c.execute('INSERT INTO customer_avatars(customer_id,media_id) VALUES(?,?) ON DUPLICATE KEY UPDATE media_id=VALUES(media_id)',[row.id,id]);}
    else await c.execute('DELETE FROM customer_avatars WHERE customer_id=?',[row.id]);

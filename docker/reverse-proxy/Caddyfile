@@ -2,7 +2,7 @@
     admin off
 }
 neon-loft-zyh.duckdns.org {
-    @guest path /api/public/* /api/register /api/login /api/logout /api/me /api/password /api/reservations /api/reservations/*
+    @guest path /api/public/* /api/register /api/login /api/logout /api/me /api/password /api/reservations /api/reservations/* /api/media /api/media/* /api/customers/*/avatar
     handle @guest {
         reverse_proxy 127.0.0.1:3000
     }
