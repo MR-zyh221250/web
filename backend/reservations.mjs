@@ -16,7 +16,7 @@ export function reservations(app,{pool,fail,text,transaction,versionCheck}){
  app.get('/api/reservations',async(req,res)=>{
   const role=req.user.role;
   const where=role==='admin'?'1=1':role==='customer'?'r.user_id=?':role==='shop'?'s.owner_id=?':'c.owner_id=?';
-  const [rows]=await pool.execute(`SELECT r.id,r.advert_id AS advertId,r.shop_id AS shopId,r.requested_at AS requestedAt,r.message,r.reply,r.status,r.version,a.title,a.title_en AS titleEn,s.name AS shopName,c.name AS customerName,c.phone FROM reservations r JOIN adverts a ON a.id=r.advert_id JOIN shops s ON s.id=r.shop_id JOIN customer_accounts ca ON ca.user_id=r.user_id JOIN customers c ON c.id=ca.customer_id WHERE ${where} ORDER BY r.created_at DESC`,role==='admin'?[]:[req.user.id]);res.json(rows);
+  const [rows]=await pool.execute(`SELECT r.id,r.advert_id AS advertId,r.shop_id AS shopId,r.requested_at AS requestedAt,r.message,r.reply,r.status,r.version,a.title,a.title_en AS titleEn,s.name AS shopName,c.name AS customerName,c.phone,c.id AS customerId,(SELECT sale_id FROM sale_links WHERE reservation_id=r.id) AS saleId FROM reservations r JOIN adverts a ON a.id=r.advert_id JOIN shops s ON s.id=r.shop_id JOIN customer_accounts ca ON ca.user_id=r.user_id JOIN customers c ON c.id=ca.customer_id WHERE ${where} ORDER BY r.created_at DESC`,role==='admin'?[]:[req.user.id]);res.json(rows);
  });
  app.post('/api/reservations',async(req,res)=>{
   if(req.user.role!=='customer')fail(403,'请使用客人账号预约。');

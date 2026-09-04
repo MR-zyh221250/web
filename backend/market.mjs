@@ -16,7 +16,7 @@ export async function migrateMarket(pool){
 }
 const shopFields='s.id,s.owner_id AS ownerId,s.name,s.name_en AS nameEn,s.description,s.description_en AS descriptionEn,s.phone,s.wechat,s.address,s.enabled,s.version';
 const adFields='a.id,a.shop_id AS shopId,a.title,a.title_en AS titleEn,a.body,a.body_en AS bodyEn,a.category,a.images,a.status,a.pinned,a.expires_on AS expiresOn,a.review_note AS reviewNote,a.version,a.updated_at AS updatedAt';
-const publicJoin='FROM adverts a JOIN shops s ON s.id=a.shop_id JOIN users u ON u.id=s.owner_id';
+const publicJoin='FROM adverts a JOIN shops s ON s.id=a.shop_id JOIN users u ON u.id=s.owner_id LEFT JOIN advert_categories ac ON ac.id=a.category';
 const visible="a.status='published' AND (a.expires_on IS NULL OR a.expires_on>=DATE(DATE_ADD(UTC_TIMESTAMP(),INTERVAL 8 HOUR))) AND s.enabled=1 AND u.enabled=1";
 const normalize=a=>({...a,images:typeof a.images==='string'?JSON.parse(a.images):a.images});
 export function publicMarket(app,{pool,fail}){
@@ -26,12 +26,12 @@ export function publicMarket(app,{pool,fail}){
   const where=`${visible} AND (?='' OR a.category=?) AND (?='' OR CONCAT(a.title,' ',a.title_en,' ',s.name,' ',s.name_en) LIKE ?)`;
   const args=[category,category,q,'%'+q+'%'];
   const [[{total}]]=await pool.execute(`SELECT COUNT(*) total ${publicJoin} WHERE ${where}`,args);
-  const [rows]=await pool.execute(`SELECT a.id,a.title,a.title_en AS titleEn,a.category,a.images,a.pinned,s.name AS shopName,s.name_en AS shopNameEn ${publicJoin} WHERE ${where} ORDER BY a.pinned DESC,a.updated_at DESC,a.id LIMIT ${limit} OFFSET ${(page-1)*limit}`,args);
-  const [categories]=await pool.query(`SELECT DISTINCT a.category ${publicJoin} WHERE ${visible} ORDER BY a.category`);
-  res.json({items:rows.map(normalize),total,page,pages:Math.ceil(total/limit),categories:categories.map(x=>x.category)});
+  const [rows]=await pool.execute(`SELECT a.id,a.title,a.title_en AS titleEn,a.category,ac.name AS categoryName,ac.name_en AS categoryNameEn,a.images,a.pinned,s.name AS shopName,s.name_en AS shopNameEn ${publicJoin} WHERE ${where} ORDER BY a.pinned DESC,a.updated_at DESC,a.id LIMIT ${limit} OFFSET ${(page-1)*limit}`,args);
+  const [categories]=await pool.query(`SELECT id,name,name_en AS nameEn FROM advert_categories ORDER BY sort_order,id`);
+  res.json({items:rows.map(normalize),total,page,pages:Math.ceil(total/limit),categories});
  });
  app.get('/api/public/adverts/:id',async(req,res)=>{
-  const [[a]]=await pool.execute(`SELECT ${adFields},s.name AS shopName,s.name_en AS shopNameEn,s.description AS shopDescription,s.description_en AS shopDescriptionEn,s.phone,s.wechat,s.address ${publicJoin} WHERE ${visible} AND a.id=?`,[req.params.id]);
+  const [[a]]=await pool.execute(`SELECT ${adFields},ac.name AS categoryName,ac.name_en AS categoryNameEn,s.name AS shopName,s.name_en AS shopNameEn,s.description AS shopDescription,s.description_en AS shopDescriptionEn,s.phone,s.wechat,s.address ${publicJoin} WHERE ${visible} AND a.id=?`,[req.params.id]);
   if(!a)fail(404,'广告不存在或已下架。');const {reviewNote,version,...item}=normalize(a);res.json(item);
  });
  app.get('/api/public/media/:id',async(req,res)=>{
@@ -82,7 +82,9 @@ export function privateMarket(app,{pool,fail,text,transaction,versionCheck}){
    const row=method==='put'?await ownShop(c,id,req.user):null;if(row)versionCheck(req.body,row);
    const ownerId=req.user.role==='admin'?text(req.body,'ownerId',36):(row?.owner_id||req.user.id);
    if(method==='post'&&req.user.role==='shop'){await c.execute('SELECT id FROM users WHERE id=? FOR UPDATE',[req.user.id]);const [[{count}]]=await c.execute('SELECT COUNT(*) count FROM shops WHERE owner_id=?',[req.user.id]);if(count)fail(409,'你已开设店铺，请编辑现有店铺。');}
-   const [[u]]=await c.execute("SELECT id FROM users WHERE id=? AND enabled=1 AND role IN ('admin','shop')",[ownerId]);if(!u)fail(400,'请选择有效的店铺账号。');
+   const [[u]]=await c.execute('SELECT id,role FROM users WHERE id=? AND enabled=1',[ownerId]);
+   const legacyOwner=method==='put'&&row?.owner_id===ownerId;
+   if(!u||(u.role!=='shop'&&!legacyOwner))fail(400,'店铺负责人必须是已启用的店铺管理员账号。请先在账号管理中创建店铺账号。');
    const enabled=req.user.role==='admin'?req.body.enabled:(row?!!row.enabled:true);if(typeof enabled!=='boolean')fail(400,'店铺状态无效。');
    if(method==='post')await c.execute('INSERT INTO shops(id,owner_id,name,name_en,description,description_en,phone,wechat,address,enabled) VALUES(?,?,?,?,?,?,?,?,?,?)',[id,ownerId,...values,enabled]);
    else await c.execute('UPDATE shops SET owner_id=?,name=?,name_en=?,description=?,description_en=?,phone=?,wechat=?,address=?,enabled=?,version=version+1 WHERE id=?',[ownerId,...values,enabled,id]);
@@ -100,6 +102,7 @@ export function privateMarket(app,{pool,fail,text,transaction,versionCheck}){
   if(status==='pending'&&!images.length)fail(400,'发布前请上传至少一张广告图片。');
   const id=req.params.id||randomUUID();
   await transaction(async c=>{
+   const [[category]]=await c.execute('SELECT id FROM advert_categories WHERE id=? FOR UPDATE',[values[4]]);if(!category)fail(400,'分类已删除，请重新选择。');
    await ownShop(c,shopId,req.user);
    if(method==='put'){const [[row]]=await c.execute('SELECT * FROM adverts WHERE id=? FOR UPDATE',[id]);if(!row)fail(404,'广告不存在。');await ownShop(c,row.shop_id,req.user);versionCheck(req.body,row);}
    for(const image of images){

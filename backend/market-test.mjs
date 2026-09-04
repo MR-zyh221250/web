@@ -9,6 +9,8 @@ await admin('/users','POST',{username:'shop_two',name:'店主乙',role:'shop',pa
 for(const [c,n] of [[shop,'shop_one'],[other,'shop_two']]){await c('/login','POST',{username:n,password:'ShopInitial123!'});await c('/password','POST',{oldPassword:'ShopInitial123!',newPassword:'ShopChanged123!'});await c('/login','POST',{username:n,password:'ShopChanged123!'});}
 await shop('/data','GET',undefined,403);
 const info={name:'测试店铺',nameEn:'Test shop',description:'店铺介绍',descriptionEn:'About us',phone:'123456',wechat:'test',address:'测试地址'};
+const administrator=(await admin('/me')).user;
+await admin('/shops','POST',{...info,ownerId:administrator.id,enabled:true},400);
 const s=await shop('/shops','POST',info,201);await shop('/shops','POST',info,409);
 await other('/shops/'+s.id,'PUT',{...info,version:1},404);
 const s2=await other('/shops','POST',{...info,name:'其他店铺'},201);

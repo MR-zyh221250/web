@@ -1,3 +1,4 @@
+import {migrateCommerce,categories,saleOptions,linkSale} from './commerce.mjs';
 import {registerGuests,reservations} from './reservations.mjs';
 import {migrateMarket,publicMarket,privateMarket} from './market.mjs';
 import express from 'express';
@@ -98,13 +99,15 @@ app.patch('/api/users/:id',admin,async(req,res)=>{
 });
 reservations(app,{pool,fail,text,transaction,versionCheck});
 app.use('/api',(req,res,next)=>req.user.role==='customer'?res.status(403).json({error:'客人账号不能访问管理功能。'}):next());
+categories(app,{pool,fail,text,transaction,versionCheck});
 privateMarket(app,{pool,fail,text,transaction,versionCheck});
 app.use('/api',(req,res,next)=>req.user.role==='shop'?res.status(403).json({error:'店铺账号不能访问客户销售资料。'}):next());
+saleOptions(app,{pool});
 const customerColumns='c.id,c.owner_id AS ownerId,u.name AS ownerName,c.name,c.company,c.phone,c.status,c.version,(SELECT media_id FROM customer_avatars WHERE customer_id=c.id) AS avatarId';
 app.get('/api/data',async(req,res)=>{
  const scoped=req.user.role!=='admin',args=scoped?[req.user.id]:[];
  const [customers]=await pool.execute(`SELECT ${customerColumns} FROM customers c JOIN users u ON u.id=c.owner_id ${scoped?'WHERE c.owner_id=?':''} ORDER BY c.created_at DESC`,args);
- const [sales]=await pool.execute(`SELECT s.id,s.customer_id AS customerId,s.item,s.cents,s.date,s.version FROM sales s JOIN customers c ON c.id=s.customer_id ${scoped?'WHERE c.owner_id=?':''} ORDER BY s.date DESC,s.created_at DESC`,args);
+ const [sales]=await pool.execute(`SELECT s.id,s.customer_id AS customerId,s.item,s.cents,s.date,s.version,l.shop_id AS shopId,l.advert_id AS advertId,l.reservation_id AS reservationId,sh.name AS shopName,a.title AS advertTitle FROM sales s JOIN customers c ON c.id=s.customer_id LEFT JOIN sale_links l ON l.sale_id=s.id LEFT JOIN shops sh ON sh.id=l.shop_id LEFT JOIN adverts a ON a.id=l.advert_id ${scoped?'WHERE c.owner_id=?':''} ORDER BY s.date DESC,s.created_at DESC`,args);
  res.json({customers,sales});
 });
 async function transaction(fn){const c=await pool.getConnection();try{await c.beginTransaction();const result=await fn(c);await c.commit();return result;}catch(e){await c.rollback();throw e;}finally{c.release();}}
@@ -131,13 +134,16 @@ for(const method of ['post','put']) app[method]('/api/sales'+(method==='put'?'/:
  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date<'2000-01-01'||date>'2100-12-31'||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date) fail(400,'日期无效。');
  const id=req.params.id||randomUUID();
  await transaction(async c=>{
+  let oldSale=null;
   if(method==='put'){
    const [[s]]=await c.execute('SELECT * FROM sales WHERE id=? FOR UPDATE',[id]);if(!s)fail(404,'销售记录不存在。');
-   await ownedCustomer(c,s.customer_id,req.user);versionCheck(req.body,s);
+   await ownedCustomer(c,s.customer_id,req.user);versionCheck(req.body,s);oldSale=s;
   }
   await ownedCustomer(c,customerId,req.user);
+  const link=await linkSale(c,{body:req.body,user:req.user,customerId,oldSale,fail,versionCheck});
   if(method==='post')await c.execute('INSERT INTO sales(id,customer_id,item,cents,date) VALUES(?,?,?,?,?)',[id,customerId,item,cents,date]);
   else await c.execute('UPDATE sales SET customer_id=?,item=?,cents=?,date=?,version=version+1 WHERE id=?',[customerId,item,cents,date,id]);
+  await c.execute('INSERT INTO sale_links(sale_id,shop_id,advert_id,reservation_id) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE shop_id=VALUES(shop_id),advert_id=VALUES(advert_id)',[id,link.shopId,link.advertId,link.reservationId]);
  });res.status(method==='post'?201:200).json({id});
 });
 app.delete('/api/sales/:id',async(req,res)=>{
@@ -154,6 +160,7 @@ app.use((e,_req,res,_next)=>{
 });
 for(const sql of readFileSync(new URL('./schema.sql',import.meta.url),'utf8').split(';').filter(s=>s.trim()))await pool.query(sql);
 await migrateMarket(pool);
+await migrateCommerce(pool);
 const dummyHash=await passwordHash(randomBytes(32).toString('hex'));
 if(process.argv.includes('--bootstrap')) {
  const [[{count}]]=await pool.query("SELECT COUNT(*) AS count FROM users WHERE role='admin'");
