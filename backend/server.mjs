@@ -1,4 +1,4 @@
-import {migrateCommerce,categories,saleOptions,linkSale} from './commerce.mjs';
+import {migrateCommerce,categories,saleOptions,shopSales,linkSale} from './commerce.mjs';
 import {registerGuests,reservations} from './reservations.mjs';
 import {migrateMarket,publicMarket,privateMarket} from './market.mjs';
 import express from 'express';
@@ -105,6 +105,7 @@ reservations(app,{pool,fail,text,transaction,versionCheck});
 privateMarket(app,{pool,fail,text,transaction,versionCheck});
 app.use('/api',(req,res,next)=>req.user.role==='customer'?res.status(403).json({error:'客人账号不能访问管理功能。'}):next());
 categories(app,{pool,fail,text,transaction,versionCheck});
+shopSales(app,{pool,fail,text,transaction,versionCheck});
 app.use('/api',(req,res,next)=>req.user.role==='shop'?res.status(403).json({error:'店铺账号不能访问客户销售资料。'}):next());
 saleOptions(app,{pool});
 const customerColumns='c.id,c.owner_id AS ownerId,u.name AS ownerName,c.name,c.company,c.phone,c.status,c.version,(SELECT media_id FROM customer_avatars WHERE customer_id=c.id) AS avatarId';

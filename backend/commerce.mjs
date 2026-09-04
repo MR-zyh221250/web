@@ -52,6 +52,43 @@ export function saleOptions(app,{pool}) {
  });
 }
 
+function saleInput(body,{fail,text}) {
+ const item=text(body,'item',100),date=text(body,'date',10),cents=body.cents;
+ if(!Number.isSafeInteger(cents)||cents<=0||cents>99999999900)fail(400,'销售金额无效。');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date<'2000-01-01'||date>'2100-12-31'||!Number.isFinite(Date.parse(date+'T00:00:00Z'))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)fail(400,'日期无效。');
+ return {item,date,cents};
+}
+
+// Shop accounts can close only their own confirmed bookings. They receive a
+// narrow sales view instead of access to the platform-wide CRM customer data.
+export function shopSales(app,{pool,fail,text,transaction,versionCheck}) {
+ const shopOnly=(req,_res,next)=>{if(req.user.role!=='shop')fail(403,'仅店铺管理员可以访问店铺成交记录。');next();};
+ app.get('/api/shop-sales',shopOnly,async(req,res)=>{
+  const [rows]=await pool.execute(`SELECT s.id,s.customer_id AS customerId,s.item,s.cents,s.date,s.version,
+   l.shop_id AS shopId,l.advert_id AS advertId,l.reservation_id AS reservationId,
+   sh.name AS shopName,a.title AS advertTitle,c.name AS customerName
+   FROM sales s JOIN sale_links l ON l.sale_id=s.id JOIN shops sh ON sh.id=l.shop_id
+   JOIN customers c ON c.id=s.customer_id LEFT JOIN adverts a ON a.id=l.advert_id
+   WHERE sh.owner_id=? ORDER BY s.date DESC,s.created_at DESC`,[req.user.id]);
+  res.json(rows);
+ });
+ app.post('/api/reservations/:id/sale',shopOnly,async(req,res)=>{
+  const input=saleInput(req.body,{fail,text}),id=randomUUID();
+  await transaction(async c=>{
+   const [[booking]]=await c.execute(`SELECT r.*,s.owner_id,ca.customer_id
+    FROM reservations r JOIN shops s ON s.id=r.shop_id
+    JOIN customer_accounts ca ON ca.user_id=r.user_id
+    WHERE r.id=? FOR UPDATE`,[req.params.id]);
+   if(!booking||booking.owner_id!==req.user.id)fail(404,'预约不存在或无权处理。');
+   const link=await linkSale(c,{body:{...req.body,reservationId:booking.id},user:req.user,customerId:booking.customer_id,oldSale:null,fail,versionCheck});
+   await c.execute('INSERT INTO sales(id,customer_id,item,cents,date) VALUES(?,?,?,?,?)',[id,booking.customer_id,input.item,input.cents,input.date]);
+   await c.execute('INSERT INTO sale_links(sale_id,shop_id,advert_id,reservation_id) VALUES(?,?,?,?)',[id,link.shopId,link.advertId,link.reservationId]);
+   if(booking.status==='confirmed')await c.execute("UPDATE reservations SET status='completed',version=version+1 WHERE id=?",[booking.id]);
+  });
+  res.status(201).json({id});
+ });
+}
+
 // Called inside the sales transaction, after checking customer ownership.
 export async function linkSale(c,{body,user,customerId,oldSale,fail,versionCheck}) {
  const idField=key=>{const value=body[key];if(value==null||value==='')return null;if(typeof value!=='string'||value.length!==36)fail(400,'关联记录无效。');return value;};
