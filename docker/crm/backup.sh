@@ -7,7 +7,7 @@ mkdir -p "$dir"
 file="$dir/$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 tmp="$file.sql.tmp"
 trap 'rm -f "$tmp" "$file.tmp"' EXIT
-docker exec neon-crm-db-1 sh -c 'export MYSQL_PWD=$(cat /run/secrets/db_root_password); exec mysqldump -uroot --single-transaction --no-tablespaces --routines --triggers neon' > "$tmp"
+docker exec neon-crm-db-1 sh -c 'export MYSQL_PWD=$(cat /run/secrets/db_root_password); exec mysqldump --hex-blob -uroot --single-transaction --no-tablespaces --routines --triggers neon' > "$tmp"
 test -s "$tmp"
 gzip -c "$tmp" > "$file.tmp"
 gzip -t "$file.tmp"

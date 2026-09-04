@@ -1,1 +1,1 @@
-{"name":"neon-loft-api","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node test.mjs"},"dependencies":{"express":"^5.1.0","mysql2":"^3.14.0"}}
+{"name":"neon-loft-api","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node test.mjs"},"dependencies":{"express":"^5.1.0","mysql2":"^3.14.0","sharp":"^0.34.5"}}

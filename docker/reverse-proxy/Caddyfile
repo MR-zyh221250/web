@@ -2,11 +2,26 @@
     admin off
 }
 neon-loft-zyh.duckdns.org {
+    @guest path /api/public/* /api/register /api/login /api/logout /api/me /api/password /api/reservations /api/reservations/*
+    handle @guest {
+        reverse_proxy 127.0.0.1:3000
+    }
+    handle /api/* {
+        respond 404
+    }
+    handle /manage.html {
+        redir https://crm.neon-loft-zyh.duckdns.org/ 308
+    }
+    handle {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
+crm.neon-loft-zyh.duckdns.org {
     handle /api/* {
         reverse_proxy 127.0.0.1:3000
     }
     handle {
-        reverse_proxy 127.0.0.1:8080
+        reverse_proxy 127.0.0.1:8081
     }
 }
 neon-ci-zyh.duckdns.org {
@@ -21,7 +36,6 @@ neon-ci-zyh.duckdns.org {
 http://45.59.102.76 {
     redir https://neon-loft-zyh.duckdns.org{uri} permanent
 }
-
 https://loft.45-59-102-76.sslip.io {
     redir https://neon-loft-zyh.duckdns.org{uri} 308
 }

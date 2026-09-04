@@ -24,7 +24,7 @@ while [ "$i" -lt 30 ]; do
   i=$((i + 1)); sleep 2
 done
 if [ "$healthy" != true ]; then docker logs "$smoke"; echo 'Container health check failed' >&2; exit 1; fi
-for route in / /manage.html /project-notes.txt /assets/textures/street_live/cyberpunk_facade_a.jpg; do
+for route in / /project-notes.txt /city-night.jpg; do
   docker exec "$smoke" wget -q -O /dev/null "http://127.0.0.1:8080$route"
 done
 if docker exec "$smoke" wget -q -O /dev/null http://127.0.0.1:8080/does-not-exist; then
@@ -33,6 +33,16 @@ fi
 printf '%s\n' "$image" > .ci-output/image.txt
 printf 'commit=%s\nimage=%s\n' "$revision" "$image" > .ci-output/release.txt
 echo 'Image build and HTTP smoke checks passed.'
+crm_image="neon-loft-crm:build-${NEON_BUILD_ID}-${short_revision}"
+docker build --target crm --label "org.opencontainers.image.revision=$revision" -t "$crm_image" .
+cleanup
+docker run -d --name "$smoke" --read-only --network none --tmpfs /tmp:size=16m,mode=1777 --cap-drop ALL --security-opt no-new-privileges --memory 128m "$crm_image" >/dev/null
+i=0
+until docker exec "$smoke" wget -q -O /dev/null http://127.0.0.1:8080/; do i=$((i+1)); [ "$i" -lt 20 ] || exit 1; sleep 1; done
+docker exec "$smoke" sh -c 'wget -qO- http://127.0.0.1:8080/ | grep -q "workspace"'
+printf '%s\n' "$crm_image" > .ci-output/crm-image.txt
+printf 'crm_image=%s\n' "$crm_image" >> .ci-output/release.txt
+
 
 export NEON_API_IMAGE="neon-loft-api:build-${NEON_BUILD_ID}-${short_revision}"
 docker build --pull --label "org.opencontainers.image.revision=$revision" -t "$NEON_API_IMAGE" backend

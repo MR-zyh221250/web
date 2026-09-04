@@ -15,6 +15,7 @@ i=0
 until docker exec "$name-api" node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; do i=$((i+1)); [ "$i" -lt 30 ] || exit 1; sleep 2; done
 printf '%s' '{"username":"admin","name":"测试管理员","password":"TestInitial123!"}' | docker exec -i "$name-api" node server.mjs --bootstrap
 docker exec "$name-api" node test.mjs
+docker exec "$name-api" node market-test.mjs
 docker restart "$name-api" >/dev/null
 i=0
 until docker exec "$name-api" node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; do i=$((i+1)); [ "$i" -lt 30 ] || exit 1; sleep 2; done

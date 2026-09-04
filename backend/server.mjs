@@ -1,3 +1,5 @@
+import {registerGuests,reservations} from './reservations.mjs';
+import {migrateMarket,publicMarket,privateMarket} from './market.mjs';
 import express from 'express';
 import mysql from 'mysql2/promise';
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto';
@@ -24,10 +26,10 @@ const publicUser=u=>({id:u.id,username:u.username,name:u.name,role:u.role,enable
 const cookieOptions={httpOnly:true,secure:process.env.COOKIE_SECURE!=='false',sameSite:'strict',path:'/api',maxAge:8*3600*1000};
 const app=express(); app.disable('x-powered-by'); app.set('trust proxy',1);
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');res.set('X-Content-Type-Options','nosniff');next();});
-app.use(express.json({limit:'16kb'}));
+app.use(express.json({limit:'2mb'}));
 app.use('/api',(req,res,next)=>{
  if(!['GET','HEAD','OPTIONS'].includes(req.method)) {
-  if(req.get('origin')!==process.env.PUBLIC_ORIGIN) return res.status(403).json({error:'请求来源不匹配，请重新打开网站。'});
+  if(![process.env.PUBLIC_ORIGIN,process.env.FRONT_ORIGIN].filter(Boolean).includes(req.get('origin'))) return res.status(403).json({error:'请求来源不匹配，请重新打开网站。'});
   if(!req.is('application/json')) return res.status(415).json({error:'仅接受 JSON 请求。'});
  }
  next();
@@ -46,6 +48,7 @@ app.post('/api/login',async(req,res)=>{
  const pw=password(req.body);
  const [[u]]=await pool.execute('SELECT * FROM users WHERE username=?',[login]);
  if(!await verify(pw,u?.password_hash||dummyHash)||!u?.enabled) fail(401,'账号或密码错误。');
+ if(process.env.FRONT_ORIGIN&&req.get('origin')===process.env.FRONT_ORIGIN&&u.role!=='customer')fail(403,'店铺和员工请在独立管理站登录。');
  const token=randomBytes(32).toString('hex');
  await transaction(async c=>{
   const [[current]]=await c.execute('SELECT enabled,password_hash FROM users WHERE id=? FOR UPDATE',[u.id]);
@@ -54,6 +57,8 @@ app.post('/api/login',async(req,res)=>{
  });
  res.cookie('neon_session',token,cookieOptions).json({user:publicUser(u)});
 });
+registerGuests(app,{pool,fail,text,username,password,passwordHash,transaction,throttle});
+publicMarket(app,{pool,fail});
 app.use('/api',async(req,res,next)=>{
  const token=String(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('neon_session='))?.slice(13);
  if(!token||!/^[0-9a-f]{64}$/.test(token)) return res.status(401).json({error:'请先登录。'});
@@ -77,20 +82,25 @@ const admin=(req,_res,next)=>{if(req.user.role!=='admin') fail(403,'需要管理
 app.get('/api/users',admin,async(_req,res)=>{const [rows]=await pool.query('SELECT * FROM users ORDER BY created_at');res.json(rows.map(publicUser));});
 app.post('/api/users',admin,async(req,res)=>{
  const login=username(req.body),name=text(req.body,'name',50),encoded=await passwordHash(password(req.body));
- const id=randomUUID();await pool.execute("INSERT INTO users(id,username,name,password_hash,role) VALUES(?,?,?,?,'sales')",[id,login,name,encoded]);res.status(201).json({id});
+ const role=req.body.role||'sales';if(!['sales','shop'].includes(role))fail(400,'账号角色无效。');
+ const id=randomUUID();await pool.execute('INSERT INTO users(id,username,name,password_hash,role) VALUES(?,?,?,?,?)',[id,login,name,encoded,role]);res.status(201).json({id});
 });
 app.patch('/api/users/:id',admin,async(req,res)=>{
  if(req.params.id===req.user.id) fail(400,'请通过修改密码管理自己的账号。');
  const name=text(req.body,'name',50);if(typeof req.body.enabled!=='boolean') fail(400,'账号状态无效。');
  const encoded=req.body.password?await passwordHash(password(req.body)):null;
  await transaction(async c=>{
-  const [[u]]=await c.execute("SELECT id FROM users WHERE id=? AND role='sales' FOR UPDATE",[req.params.id]);if(!u) fail(404,'账号不存在。');
+  const [[u]]=await c.execute("SELECT id FROM users WHERE id=? AND role IN ('sales','shop') FOR UPDATE",[req.params.id]);if(!u) fail(404,'账号不存在。');
   await c.execute('UPDATE users SET name=?,enabled=? WHERE id=?',[name,req.body.enabled,req.params.id]);
   if(encoded) await c.execute('UPDATE users SET password_hash=?,must_change=1 WHERE id=?',[encoded,req.params.id]);
   if(encoded||!req.body.enabled) await c.execute('DELETE FROM sessions WHERE user_id=?',[req.params.id]);
  });res.json({ok:true});
 });
-const customerColumns='c.id,c.owner_id AS ownerId,u.name AS ownerName,c.name,c.company,c.phone,c.status,c.version';
+reservations(app,{pool,fail,text,transaction,versionCheck});
+app.use('/api',(req,res,next)=>req.user.role==='customer'?res.status(403).json({error:'客人账号不能访问管理功能。'}):next());
+privateMarket(app,{pool,fail,text,transaction,versionCheck});
+app.use('/api',(req,res,next)=>req.user.role==='shop'?res.status(403).json({error:'店铺账号不能访问客户销售资料。'}):next());
+const customerColumns='c.id,c.owner_id AS ownerId,u.name AS ownerName,c.name,c.company,c.phone,c.status,c.version,(SELECT media_id FROM customer_avatars WHERE customer_id=c.id) AS avatarId';
 app.get('/api/data',async(req,res)=>{
  const scoped=req.user.role!=='admin',args=scoped?[req.user.id]:[];
  const [customers]=await pool.execute(`SELECT ${customerColumns} FROM customers c JOIN users u ON u.id=c.owner_id ${scoped?'WHERE c.owner_id=?':''} ORDER BY c.created_at DESC`,args);
@@ -99,7 +109,7 @@ app.get('/api/data',async(req,res)=>{
 });
 async function transaction(fn){const c=await pool.getConnection();try{await c.beginTransaction();const result=await fn(c);await c.commit();return result;}catch(e){await c.rollback();throw e;}finally{c.release();}}
 async function ownedCustomer(c,id,user){const [[row]]=await c.execute('SELECT * FROM customers WHERE id=? FOR UPDATE',[id]);if(!row||(user.role!=='admin'&&row.owner_id!==user.id)) fail(404,'客户不存在或无权访问。');return row;}
-const versionCheck=(body,row)=>{if(!Number.isInteger(body.version)||body.version!==row.version) fail(409,'记录已被其他操作更新，请刷新后重试。');};
+function versionCheck(body,row){if(!Number.isInteger(body.version)||body.version!==row.version) fail(409,'记录已被其他操作更新，请刷新后重试。');}
 for(const method of ['post','put']) app[method]('/api/customers'+(method==='put'?'/:id':''),async(req,res)=>{
  const name=text(req.body,'name',50),company=text(req.body,'company',100,false),phone=text(req.body,'phone',30,false),status=text(req.body,'status',10);
  if(!['待联系','跟进中','已成交'].includes(status)) fail(400,'跟进状态无效。');
@@ -107,7 +117,7 @@ for(const method of ['post','put']) app[method]('/api/customers'+(method==='put'
  const id=req.params.id||randomUUID();
  await transaction(async c=>{
   if(method==='put')versionCheck(req.body,await ownedCustomer(c,id,req.user));
-  const [[owner]]=await c.execute('SELECT id FROM users WHERE id=? AND enabled=1',[ownerId]);if(!owner) fail(400,'请选择有效负责人。');
+  const [[owner]]=await c.execute("SELECT id FROM users WHERE id=? AND enabled=1 AND role IN ('admin','sales')",[ownerId]);if(!owner) fail(400,'请选择有效负责人。');
   if(method==='post')await c.execute('INSERT INTO customers(id,owner_id,name,company,phone,status) VALUES(?,?,?,?,?,?)',[id,ownerId,name,company,phone,status]);
   else await c.execute('UPDATE customers SET owner_id=?,name=?,company=?,phone=?,status=?,version=version+1 WHERE id=?',[ownerId,name,company,phone,status,id]);
  });res.status(method==='post'?201:200).json({id});
@@ -137,12 +147,13 @@ app.use('/api',(_req,res)=>res.status(404).json({error:'接口不存在。'}));
 app.use((e,_req,res,_next)=>{
  let status=e.status||500,message=e.status?e.message:'服务暂时不可用，请稍后重试。';
  if(e.code==='ER_DUP_ENTRY'){status=409;message='账号已存在。';}
- if(e.code==='ER_ROW_IS_REFERENCED_2'){status=409;message='客户已有销售记录，请先处理关联记录。';}
+ if(e.code==='ER_ROW_IS_REFERENCED_2'){status=409;message='记录已有关联资料，不能删除。可先下架、停用或处理关联记录。';}
  if(e.code==='ER_LOCK_DEADLOCK'){status=409;message='记录正在更新，请刷新后重试。';}
  if(status>=500)console.error('API error',e.code||e.name);
  res.status(status).json({error:message});
 });
 for(const sql of readFileSync(new URL('./schema.sql',import.meta.url),'utf8').split(';').filter(s=>s.trim()))await pool.query(sql);
+await migrateMarket(pool);
 const dummyHash=await passwordHash(randomBytes(32).toString('hex'));
 if(process.argv.includes('--bootstrap')) {
  const [[{count}]]=await pool.query("SELECT COUNT(*) AS count FROM users WHERE role='admin'");
