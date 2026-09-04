@@ -22,7 +22,7 @@ async function verify(password, encoded) {
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 function text(body,key,max,required=true) { const v=body?.[key]; if(typeof v!=='string'||v.length>max||(required&&!v.trim())) fail(400,'请检查输入内容：'+key); return v.trim(); }
 function password(body,key='password') { const v=body?.[key]; if(typeof v!=='string'||v.length<10||v.length>128) fail(400,'密码需为 10～128 个字符。'); return v; }
-function username(body) {const v=text(body,'username',40).toLowerCase(); if(!/^[a-z0-9_][a-z0-9_.-]{2,39}$/.test(v)) fail(400,'账号需为 3～40 位字母、数字或 . _ -');return v;}
+function username(body) {const v=text(body,'username',40).normalize('NFKC').toLowerCase(); if(!/^[\p{L}\p{N}_][\p{L}\p{N}_.-]{2,39}$/u.test(v)) fail(400,'账号需为 3～40 位中文、字母、数字或 . _ -');return v;}
 const publicUser=u=>({id:u.id,username:u.username,name:u.name,role:u.role,enabled:!!u.enabled,mustChange:!!u.must_change});
 const cookieOptions={httpOnly:true,secure:process.env.COOKIE_SECURE!=='false',sameSite:'strict',path:'/api',maxAge:8*3600*1000};
 const app=express(); app.disable('x-powered-by'); app.set('trust proxy',1);
