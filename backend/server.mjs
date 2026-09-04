@@ -98,9 +98,13 @@ app.patch('/api/users/:id',admin,async(req,res)=>{
  });res.json({ok:true});
 });
 reservations(app,{pool,fail,text,transaction,versionCheck});
+// Media and avatar routes perform their own role and ownership checks. Register
+// them before the customer-wide management guard so guests can manage only
+// their own profile avatar; the remaining market routes reject customers via
+// their `market` middleware.
+privateMarket(app,{pool,fail,text,transaction,versionCheck});
 app.use('/api',(req,res,next)=>req.user.role==='customer'?res.status(403).json({error:'客人账号不能访问管理功能。'}):next());
 categories(app,{pool,fail,text,transaction,versionCheck});
-privateMarket(app,{pool,fail,text,transaction,versionCheck});
 app.use('/api',(req,res,next)=>req.user.role==='shop'?res.status(403).json({error:'店铺账号不能访问客户销售资料。'}):next());
 saleOptions(app,{pool});
 const customerColumns='c.id,c.owner_id AS ownerId,u.name AS ownerName,c.name,c.company,c.phone,c.status,c.version,(SELECT media_id FROM customer_avatars WHERE customer_id=c.id) AS avatarId';
