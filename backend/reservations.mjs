@@ -1,14 +1,22 @@
 import {randomUUID} from 'node:crypto';
+import sharp from 'sharp';
 export function registerGuests(app,{pool,fail,text,username,password,passwordHash,transaction,throttle}){
  app.post('/api/register',async(req,res)=>{
   throttle('register:'+req.ip,8);
   const login=username(req.body),name=text(req.body,'name',50),phone=text(req.body,'phone',30),encoded=await passwordHash(password(req.body));
-  const id=randomUUID(),customerId=randomUUID();
+  const avatar=req.body?.avatar;let avatarBytes=null;
+  if(avatar!==null&&avatar!==undefined){
+   if(typeof avatar!=='string'||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)||avatar.length>1500000)fail(400,'请选择不超过 1 MB 的 JPG、PNG 或 WebP 头像。');
+   try{avatarBytes=await sharp(Buffer.from(avatar.split(',')[1],'base64'),{limitInputPixels:20000000,animated:false}).rotate().resize({width:512,height:512,fit:'cover'}).jpeg({quality:82}).toBuffer();}catch{fail(400,'头像无法解码，请重新选择图片。');}
+   if(avatarBytes.length>1024*1024)fail(400,'头像过大，请缩小后重试。');
+  }
+  const id=randomUUID(),customerId=randomUUID(),avatarId=avatarBytes?randomUUID():null;
   await transaction(async c=>{
    const [[owner]]=await c.query("SELECT id FROM users WHERE role='admin' AND enabled=1 ORDER BY created_at LIMIT 1");if(!owner)fail(503,'暂未开放注册。');
    await c.execute("INSERT INTO users(id,username,name,password_hash,role,must_change) VALUES(?,?,?,?,'customer',0)",[id,login,name,encoded]);
    await c.execute("INSERT INTO customers(id,owner_id,name,phone,status) VALUES(?,?,?,?,'待联系')",[customerId,owner.id,name,phone]);
    await c.execute('INSERT INTO customer_accounts(user_id,customer_id) VALUES(?,?)',[id,customerId]);
+   if(avatarBytes){await c.execute("INSERT INTO media(id,owner_id,purpose,bytes) VALUES(?,?,'avatar',?)",[avatarId,id,avatarBytes]);await c.execute('INSERT INTO customer_avatars(customer_id,media_id) VALUES(?,?)',[customerId,avatarId]);}
   });res.status(201).json({ok:true});
  });
 }
