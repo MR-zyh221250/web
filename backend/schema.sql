@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
  name VARCHAR(50) NOT NULL, password_hash VARCHAR(255) NOT NULL,
  role ENUM('admin','sales') NOT NULL DEFAULT 'sales',
  enabled BOOLEAN NOT NULL DEFAULT TRUE, must_change BOOLEAN NOT NULL DEFAULT TRUE,
+ merchant_status ENUM('pending','approved','rejected') NULL,
  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS sessions (

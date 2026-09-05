@@ -4,6 +4,9 @@ import {randomUUID} from 'node:crypto';
 export async function migrateMarket(pool){
  const [[column]]=await pool.query("SHOW COLUMNS FROM users LIKE 'role'");
  if(!column.Type.includes("'customer'"))await pool.query("ALTER TABLE users MODIFY role ENUM('admin','sales','shop','customer') NOT NULL DEFAULT 'sales'");
+ const [[merchantStatus]]=await pool.query("SHOW COLUMNS FROM users LIKE 'merchant_status'");
+ if(!merchantStatus)await pool.query("ALTER TABLE users ADD merchant_status ENUM('pending','approved','rejected') NULL AFTER must_change");
+ await pool.query("UPDATE users SET merchant_status='approved' WHERE role='shop' AND merchant_status IS NULL");
  for(const sql of [
  `CREATE TABLE IF NOT EXISTS media (id CHAR(36) PRIMARY KEY, owner_id CHAR(36) NOT NULL, purpose ENUM('avatar','advert') NOT NULL, bytes MEDIUMBLOB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(owner_id) REFERENCES users(id)) ENGINE=InnoDB`,
  `CREATE TABLE IF NOT EXISTS customer_avatars (customer_id CHAR(36) PRIMARY KEY, media_id CHAR(36) NOT NULL, FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE, FOREIGN KEY(media_id) REFERENCES media(id)) ENGINE=InnoDB`,

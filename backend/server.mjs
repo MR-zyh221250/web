@@ -23,7 +23,7 @@ const fail=(status,message)=>{throw Object.assign(new Error(message),{status});}
 function text(body,key,max,required=true) { const v=body?.[key]; if(typeof v!=='string'||v.length>max||(required&&!v.trim())) fail(400,'请检查输入内容：'+key); return v.trim(); }
 function password(body,key='password') { const v=body?.[key]; if(typeof v!=='string'||v.length<10||v.length>128) fail(400,'密码需为 10～128 个字符。'); return v; }
 function username(body) {const v=text(body,'username',40).normalize('NFKC').toLowerCase(); if(!/^[\p{L}\p{N}_][\p{L}\p{N}_.-]{2,39}$/u.test(v)) fail(400,'账号需为 3～40 位中文、字母、数字或 . _ -');return v;}
-const publicUser=u=>({id:u.id,username:u.username,name:u.name,role:u.role,enabled:!!u.enabled,mustChange:!!u.must_change});
+const publicUser=u=>({id:u.id,username:u.username,name:u.name,role:u.role,enabled:!!u.enabled,mustChange:!!u.must_change,merchantStatus:u.merchant_status||null});
 const cookieOptions={httpOnly:true,secure:process.env.COOKIE_SECURE!=='false',sameSite:'strict',path:'/api',maxAge:8*3600*1000};
 const app=express(); app.disable('x-powered-by'); app.set('trust proxy',1);
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');res.set('X-Content-Type-Options','nosniff');next();});
@@ -49,7 +49,13 @@ app.post('/api/login',async(req,res)=>{
  const login=username(req.body);throttle('user:'+login,15);
  const pw=password(req.body);
  const [[u]]=await pool.execute('SELECT * FROM users WHERE username=?',[login]);
- if(!await verify(pw,u?.password_hash||dummyHash)||!u?.enabled) fail(401,'账号或密码错误。');
+ if(!await verify(pw,u?.password_hash||dummyHash))fail(401,'账号或密码错误。');
+ if(!u.enabled){
+  if(u.role==='shop'&&u.merchant_status==='pending')fail(403,'注册申请正在等待管理员审核。');
+  if(u.role==='shop'&&u.merchant_status==='rejected')fail(403,'商户注册申请未通过审核，请联系管理员。');
+  if(u.role==='shop')fail(403,'商户账号已停用，请联系管理员。');
+  fail(401,'账号或密码错误。');
+ }
  const origin=req.get('origin');
  if(process.env.FRONT_ORIGIN&&origin===process.env.FRONT_ORIGIN&&u.role!=='customer')fail(403,'店铺和员工请使用各自的独立后台登录。');
  if(process.env.MERCHANT_ORIGIN&&origin===process.env.MERCHANT_ORIGIN&&u.role!=='shop')fail(403,'此地址仅供商户登录，请前往平台管理后台。');
@@ -63,6 +69,14 @@ app.post('/api/login',async(req,res)=>{
  res.cookie('neon_session',token,cookieOptions).json({user:publicUser(u)});
 });
 registerGuests(app,{pool,fail,text,username,password,passwordHash,transaction,throttle});
+app.post('/api/merchant-register',async(req,res)=>{
+ if(process.env.MERCHANT_ORIGIN&&req.get('origin')!==process.env.MERCHANT_ORIGIN)fail(403,'请从商户工作台提交注册。');
+ throttle('merchant-register:'+req.ip,8);
+ const login=username(req.body),name=text(req.body,'name',50),encoded=await passwordHash(password(req.body));
+ const id=randomUUID();
+ await pool.execute("INSERT INTO users(id,username,name,password_hash,role,enabled,must_change,merchant_status) VALUES(?,?,?,?, 'shop',0,0,'pending')",[id,login,name,encoded]);
+ res.status(201).json({id,status:'pending'});
+});
 publicMarket(app,{pool,fail});
 app.use('/api',async(req,res,next)=>{
  const token=String(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('neon_session='))?.slice(13);
@@ -84,22 +98,35 @@ app.post('/api/password',async(req,res)=>{
 });
 app.use('/api',(req,res,next)=>req.user.must_change?res.status(403).json({error:'首次登录请先修改密码。',code:'PASSWORD_CHANGE_REQUIRED'}):next());
 const admin=(req,_res,next)=>{if(req.user.role!=='admin') fail(403,'需要管理员权限。');next();};
-app.get('/api/users',admin,async(_req,res)=>{const [rows]=await pool.query('SELECT * FROM users ORDER BY created_at');res.json(rows.map(publicUser));});
+app.get('/api/users',admin,async(_req,res)=>{const [rows]=await pool.query("SELECT * FROM users WHERE role IN ('admin','sales') ORDER BY created_at");res.json(rows.map(publicUser));});
 app.post('/api/users',admin,async(req,res)=>{
  const login=username(req.body),name=text(req.body,'name',50),encoded=await passwordHash(password(req.body));
- const role=req.body.role||'sales';if(!['sales','shop'].includes(role))fail(400,'账号角色无效。');
- const id=randomUUID();await pool.execute('INSERT INTO users(id,username,name,password_hash,role) VALUES(?,?,?,?,?)',[id,login,name,encoded,role]);res.status(201).json({id});
+ const id=randomUUID();await pool.execute("INSERT INTO users(id,username,name,password_hash,role) VALUES(?,?,?,?,'sales')",[id,login,name,encoded]);res.status(201).json({id});
 });
 app.patch('/api/users/:id',admin,async(req,res)=>{
  if(req.params.id===req.user.id) fail(400,'请通过修改密码管理自己的账号。');
  const name=text(req.body,'name',50);if(typeof req.body.enabled!=='boolean') fail(400,'账号状态无效。');
  const encoded=req.body.password?await passwordHash(password(req.body)):null;
  await transaction(async c=>{
-  const [[u]]=await c.execute("SELECT id FROM users WHERE id=? AND role IN ('sales','shop') FOR UPDATE",[req.params.id]);if(!u) fail(404,'账号不存在。');
+  const [[u]]=await c.execute("SELECT id FROM users WHERE id=? AND role='sales' FOR UPDATE",[req.params.id]);if(!u) fail(404,'平台账号不存在。');
   await c.execute('UPDATE users SET name=?,enabled=? WHERE id=?',[name,req.body.enabled,req.params.id]);
   if(encoded) await c.execute('UPDATE users SET password_hash=?,must_change=1 WHERE id=?',[encoded,req.params.id]);
   if(encoded||!req.body.enabled) await c.execute('DELETE FROM sessions WHERE user_id=?',[req.params.id]);
  });res.json({ok:true});
+});
+app.get('/api/merchant-users',admin,async(_req,res)=>{const [rows]=await pool.query("SELECT * FROM users WHERE role='shop' ORDER BY created_at DESC");res.json(rows.map(publicUser));});
+app.patch('/api/merchant-users/:id',admin,async(req,res)=>{
+ const name=text(req.body,'name',50),state=text(req.body,'state',20);
+ if(!['pending','approved','rejected','disabled'].includes(state))fail(400,'商户账号状态无效。');
+ const encoded=req.body.password?await passwordHash(password(req.body)):null;
+ const merchantStatus=state==='disabled'?'approved':state,enabled=state==='approved';
+ await transaction(async c=>{
+  const [[u]]=await c.execute("SELECT id FROM users WHERE id=? AND role='shop' FOR UPDATE",[req.params.id]);if(!u)fail(404,'商户账号不存在。');
+  await c.execute('UPDATE users SET name=?,merchant_status=?,enabled=? WHERE id=?',[name,merchantStatus,enabled,req.params.id]);
+  if(encoded)await c.execute('UPDATE users SET password_hash=?,must_change=1 WHERE id=?',[encoded,req.params.id]);
+  if(encoded||!enabled)await c.execute('DELETE FROM sessions WHERE user_id=?',[req.params.id]);
+ });
+ res.json({ok:true});
 });
 reservations(app,{pool,fail,text,transaction,versionCheck});
 // Media and avatar routes perform their own role and ownership checks. Register

@@ -4,9 +4,12 @@ const base='http://127.0.0.1:3000/api',origin='http://test.local',merchantOrigin
 function client(source=origin){let cookie='';return async(path,method='GET',body,status=200)=>{const r=await fetch(base+path,{method,headers:{Origin:source,Cookie:cookie,...(body!==undefined?{'Content-Type':'application/json'}:{})},body:body===undefined?undefined:JSON.stringify(body)});if(r.headers.get('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];const d=await r.json();assert.equal(r.status,status,`${method} ${path}: ${JSON.stringify(d)}`);return d;};}
 const admin=client(),shop=client(merchantOrigin),other=client(merchantOrigin),unicodeShop=client(merchantOrigin),guest=client(),anon=client();
 await admin('/login','POST',{username:'admin',password:'TestChanged123!'});
-await admin('/users','POST',{username:'shop_one',name:'店主甲',role:'shop',password:'ShopInitial123!'},201);
-await admin('/users','POST',{username:'shop_two',name:'店主乙',role:'shop',password:'ShopInitial123!'},201);
-await admin('/users','POST',{username:'店铺1',name:'中文账号测试',role:'shop',password:'ShopInitial123!'},201);
+for(const [c,n,name] of [[shop,'shop_one','店主甲'],[other,'shop_two','店主乙'],[unicodeShop,'店铺1','中文账号测试']])await c('/merchant-register','POST',{username:n,name,password:'ShopInitial123!'},201);
+await shop('/login','POST',{username:'shop_one',password:'ShopInitial123!'},403);
+const merchantUsers=await admin('/merchant-users');
+assert.equal(merchantUsers.length,3);assert.ok(merchantUsers.every(u=>u.merchantStatus==='pending'&&!u.enabled));
+assert.equal((await admin('/users')).some(u=>u.role==='shop'),false,'merchant accounts are separate from platform accounts');
+for(const u of merchantUsers)await admin('/merchant-users/'+u.id,'PATCH',{name:u.name,state:'approved'});
 await client()('/login','POST',{username:'shop_one',password:'ShopInitial123!'},403);
 await client(merchantOrigin)('/login','POST',{username:'admin',password:'TestChanged123!'},403);
 for(const [c,n] of [[shop,'shop_one'],[other,'shop_two'],[unicodeShop,'店铺1']]){await c('/login','POST',{username:n,password:'ShopInitial123!'});await c('/password','POST',{oldPassword:'ShopInitial123!',newPassword:'ShopChanged123!'});await c('/login','POST',{username:n,password:'ShopChanged123!'});}
