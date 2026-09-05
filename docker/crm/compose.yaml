@@ -31,6 +31,7 @@ services:
       DB_HOST: db
       DB_PASSWORD_FILE: /run/secrets/db_password
       PUBLIC_ORIGIN: ${NEON_PUBLIC_ORIGIN:-https://crm.neon-loft-zyh.duckdns.org}
+      MERCHANT_ORIGIN: ${NEON_MERCHANT_ORIGIN:-https://merchant.neon-loft-zyh.duckdns.org}
       FRONT_ORIGIN: ${NEON_FRONT_ORIGIN-https://neon-loft-zyh.duckdns.org}
       COOKIE_SECURE: "true"
       NODE_OPTIONS: --max-old-space-size=192

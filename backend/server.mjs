@@ -28,9 +28,10 @@ const cookieOptions={httpOnly:true,secure:process.env.COOKIE_SECURE!=='false',sa
 const app=express(); app.disable('x-powered-by'); app.set('trust proxy',1);
 app.use('/api',(_req,res,next)=>{res.set('Cache-Control','no-store');res.set('X-Content-Type-Options','nosniff');next();});
 app.use(express.json({limit:'2mb'}));
+const allowedOrigins=[process.env.PUBLIC_ORIGIN,process.env.MERCHANT_ORIGIN,process.env.FRONT_ORIGIN].filter(Boolean);
 app.use('/api',(req,res,next)=>{
  if(!['GET','HEAD','OPTIONS'].includes(req.method)) {
-  if(![process.env.PUBLIC_ORIGIN,process.env.FRONT_ORIGIN].filter(Boolean).includes(req.get('origin'))) return res.status(403).json({error:'请求来源不匹配，请重新打开网站。'});
+  if(!allowedOrigins.includes(req.get('origin'))) return res.status(403).json({error:'请求来源不匹配，请重新打开网站。'});
   if(!req.is('application/json')) return res.status(415).json({error:'仅接受 JSON 请求。'});
  }
  next();
@@ -49,7 +50,10 @@ app.post('/api/login',async(req,res)=>{
  const pw=password(req.body);
  const [[u]]=await pool.execute('SELECT * FROM users WHERE username=?',[login]);
  if(!await verify(pw,u?.password_hash||dummyHash)||!u?.enabled) fail(401,'账号或密码错误。');
- if(process.env.FRONT_ORIGIN&&req.get('origin')===process.env.FRONT_ORIGIN&&u.role!=='customer')fail(403,'店铺和员工请在独立管理站登录。');
+ const origin=req.get('origin');
+ if(process.env.FRONT_ORIGIN&&origin===process.env.FRONT_ORIGIN&&u.role!=='customer')fail(403,'店铺和员工请使用各自的独立后台登录。');
+ if(process.env.MERCHANT_ORIGIN&&origin===process.env.MERCHANT_ORIGIN&&u.role!=='shop')fail(403,'此地址仅供商户登录，请前往平台管理后台。');
+ if(process.env.MERCHANT_ORIGIN&&process.env.PUBLIC_ORIGIN&&origin===process.env.PUBLIC_ORIGIN&&u.role==='shop')fail(403,'商户请前往独立的商户工作台登录。');
  const token=randomBytes(32).toString('hex');
  await transaction(async c=>{
   const [[current]]=await c.execute('SELECT enabled,password_hash FROM users WHERE id=? FOR UPDATE',[u.id]);

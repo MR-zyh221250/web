@@ -1,9 +1,10 @@
 # NEON LOFT · 霓虹展示站与独立 CRM
 
-非 3D 的中英文霓虹展示网站，支持店铺广告浏览、分类搜索、图文详情、客人注册、预约与留言。独立管理站管理客户、销售、店铺、广告审核和预约；客户头像支持在线裁剪上传。
+非 3D 的中英文霓虹展示网站，支持店铺广告浏览、分类搜索、图文详情、客人注册、预约与留言。平台管理后台与商户工作台使用独立地址和角色权限；客户头像支持在线裁剪上传。
 
 - 展示站：https://neon-loft-zyh.duckdns.org/
-- 管理站：https://crm.neon-loft-zyh.duckdns.org/
+- 平台管理后台：https://crm.neon-loft-zyh.duckdns.org/
+- 商户工作台：https://merchant.neon-loft-zyh.duckdns.org/
 - TeamCity：https://neon-ci-zyh.duckdns.org/
 
 店铺账号由管理员创建，店主自行录入资料开店。广告必须具备中英文内容，审核后发布；支持置顶、主动下架和到期隐藏。客人注册后同步生成 CRM 客户记录。
@@ -12,7 +13,7 @@
 
 ## 本地开发
 
-Node.js 24，运行 `npm ci`、`npm run dev`。开发地址为 http://127.0.0.1:5182/ ，管理页为 `/manage.html`，API 通过本机 3000 端口连接后端。`npm run build` 生成静态产物；生产管理站以独立域名根路径访问。
+Node.js 24，运行 `npm ci`、`npm run dev`。开发地址为 http://127.0.0.1:5182/ ，平台管理页为 `/manage.html`，商户页为 `/merchant.html`，API 通过本机 3000 端口连接后端。`npm run build` 生成静态产物；生产环境通过两个独立后台域名访问。
 
 ## 发布
 

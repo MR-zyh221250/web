@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import mysql from 'mysql2/promise';
 const base='http://127.0.0.1:3000/api';
-function client(){let cookie='';return async(path,method='GET',body,status=200)=>{const r=await fetch(base+path,{method,headers:{Origin:'http://test.local',Cookie:cookie,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});if(r.headers.get('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];const d=await r.json();assert.equal(r.status,status,`${method} ${path} ${JSON.stringify(d)}`);return d;};}
-const admin=client(),shop=client(),guest=client(),sales=client(),anon=client();
+function client(origin='http://test.local'){let cookie='';return async(path,method='GET',body,status=200)=>{const r=await fetch(base+path,{method,headers:{Origin:origin,Cookie:cookie,...(body===undefined?{}:{'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body)});if(r.headers.get('set-cookie'))cookie=r.headers.get('set-cookie').split(';')[0];const d=await r.json();assert.equal(r.status,status,`${method} ${path} ${JSON.stringify(d)}`);return d;};}
+const admin=client(),shop=client('http://merchant.test'),guest=client(),sales=client(),anon=client();
 await admin('/login','POST',{username:'admin',password:'TestChanged123!'});
 await shop('/login','POST',{username:'shop_one',password:'ShopChanged123!'});
 await sales('/login','POST',{username:'seller_a',password:'SellerChanged123!'});

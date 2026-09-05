@@ -40,6 +40,7 @@ docker run -d --name "$smoke" --read-only --network none --tmpfs /tmp:size=16m,m
 i=0
 until docker exec "$smoke" wget -q -O /dev/null http://127.0.0.1:8080/; do i=$((i+1)); [ "$i" -lt 20 ] || exit 1; sleep 1; done
 docker exec "$smoke" sh -c 'wget -qO- http://127.0.0.1:8080/ | grep -q "workspace"'
+docker exec "$smoke" sh -c 'wget -qO- http://127.0.0.1:8080/merchant.html | grep -q "merchant-portal"'
 printf '%s\n' "$crm_image" > .ci-output/crm-image.txt
 printf 'crm_image=%s\n' "$crm_image" >> .ci-output/release.txt
 

@@ -24,6 +24,18 @@ crm.neon-loft-zyh.duckdns.org {
         reverse_proxy 127.0.0.1:8081
     }
 }
+merchant.neon-loft-zyh.duckdns.org {
+    handle /api/* {
+        reverse_proxy 127.0.0.1:3000
+    }
+    handle / {
+        rewrite * /merchant.html
+        reverse_proxy 127.0.0.1:8081
+    }
+    handle {
+        reverse_proxy 127.0.0.1:8081
+    }
+}
 neon-ci-zyh.duckdns.org {
     reverse_proxy 127.0.0.1:8112 {
         header_up X-Forwarded-Port 443

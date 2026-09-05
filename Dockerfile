@@ -6,7 +6,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY . .
 ENV NODE_OPTIONS=--max-old-space-size=1024
-RUN npm run build && mkdir /app/crm-dist && cp -r dist/assets /app/crm-dist/ && cp dist/manage.html /app/crm-dist/index.html && cp dist/project-notes.txt /app/crm-dist/ && rm dist/manage.html
+RUN npm run build && mkdir /app/crm-dist && cp -r dist/assets /app/crm-dist/ && cp dist/manage.html /app/crm-dist/index.html && cp dist/merchant.html /app/crm-dist/ && cp dist/project-notes.txt /app/crm-dist/ && rm dist/manage.html dist/merchant.html
 
 FROM ${NGINX_IMAGE} AS base
 COPY docker/nginx.conf /etc/nginx/nginx.conf
