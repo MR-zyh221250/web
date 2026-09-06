@@ -41,9 +41,41 @@ function avatarCrop(image){
  });
 }
 
-export function cropImage(file,square=false){
- return new Promise((resolve,reject)=>{
-  if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)return reject(new Error(copy('请选择 10 MB 以内的 JPG、PNG 或 WebP 图片。','Choose a JPG, PNG or WebP image under 10 MB.')));
-  const image=new Image(),url=URL.createObjectURL(file);image.onload=()=>{URL.revokeObjectURL(url);if(image.width*image.height>20000000)return reject(new Error(copy('图片尺寸过大，请选择较小的图片。','The image is too large. Choose a smaller image.')));(square?avatarCrop(image):standardCrop(image)).then(resolve,reject);};image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error(copy('无法读取图片。','The image could not be read.')));};image.src=url;
- });
+async function isHeic(file){
+ if(/image\/hei[cf]/i.test(file.type)||/\.hei[cf]$/i.test(file.name))return true;
+ try{const brand=new TextDecoder('ascii').decode(await file.slice(4,12).arrayBuffer());return /ftyp(?:heic|heix|hevc|hevx|heim|heis|mif1|msf1)/i.test(brand);}catch{return false;}
+}
+
+async function browserImage(file){
+ if('createImageBitmap' in window){
+  try{return await createImageBitmap(file,{imageOrientation:'from-image'});}catch{
+   try{return await createImageBitmap(file);}catch{}
+  }
+ }
+ const fromSource=source=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=reject;image.src=source;});
+ const url=URL.createObjectURL(file);
+ try{return await fromSource(url);}catch{
+  const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
+  return await fromSource(data);
+ }finally{URL.revokeObjectURL(url);}
+}
+
+export async function cropImage(file,square=false){
+ const heic=await isHeic(file),regular=['image/jpeg','image/png','image/webp'].includes(file.type)||/\.(?:jpe?g|png|webp)$/i.test(file.name);
+ if((!heic&&!regular)||file.size>15*1024*1024)throw new Error(copy('请选择 15 MB 以内的 JPG、PNG、WebP、HEIC 或 HEIF 图片。','Choose a JPG, PNG, WebP, HEIC or HEIF image under 15 MB.'));
+ let source=file;
+ if(heic){
+  try{const {default:heic2any}=await import('heic2any');const converted=await heic2any({blob:file,toType:'image/jpeg',quality:.92});source=Array.isArray(converted)?converted[0]:converted;}
+  catch{throw new Error(copy('这张手机照片无法转换，请尝试在相册中导出为 JPG 后重新选择。','This phone photo could not be converted. Export it as JPG and try again.'));}
+ }
+ let image;
+ try{
+  image=await browserImage(source);
+  if(!image.width||!image.height)throw new Error();
+  if(image.width*image.height>30000000)throw new Error(copy('图片尺寸过大，请选择较小的图片。','The image is too large. Choose a smaller image.'));
+  return await (square?avatarCrop(image):standardCrop(image));
+ }catch(error){
+  if(error?.message)throw error;
+  throw new Error(copy('无法读取这张图片，请换一张或先保存为 JPG。','The image could not be read. Try another image or save it as JPG first.'));
+ }finally{image?.close?.();}
 }

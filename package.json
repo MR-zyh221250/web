@@ -19,6 +19,7 @@
     "verify": "npm run gate && npm run typecheck && npm test"
   },
   "dependencies": {
+    "heic2any": "^0.0.4",
     "postprocessing": "^6.36.0",
     "three": "^0.170.0"
   },
