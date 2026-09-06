@@ -3,6 +3,7 @@ import {registerGuests,reservations} from './reservations.mjs';
 import {migrateMarket,publicMarket,privateMarket} from './market.mjs';
 import express from 'express';
 import mysql from 'mysql2/promise';
+import sharp from 'sharp';
 import { randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { readFileSync } from 'node:fs';
@@ -73,8 +74,16 @@ app.post('/api/merchant-register',async(req,res)=>{
  if(process.env.MERCHANT_ORIGIN&&req.get('origin')!==process.env.MERCHANT_ORIGIN)fail(403,'请从商户工作台提交注册。');
  throttle('merchant-register:'+req.ip,8);
  const login=username(req.body),name=text(req.body,'name',50),encoded=await passwordHash(password(req.body));
- const id=randomUUID();
- await pool.execute("INSERT INTO users(id,username,name,password_hash,role,enabled,must_change,merchant_status) VALUES(?,?,?,?, 'shop',0,0,'pending')",[id,login,name,encoded]);
+ const avatar=req.body?.avatar;let avatarBytes=null;
+ if(avatar!==null&&avatar!==undefined){
+  if(typeof avatar!=='string'||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(avatar)||avatar.length>1500000)fail(400,'请选择不超过 1 MB 的头像。');
+  try{avatarBytes=await sharp(Buffer.from(avatar.split(',')[1],'base64'),{limitInputPixels:30000000,animated:false}).rotate().resize({width:512,height:512,fit:'cover'}).jpeg({quality:82}).toBuffer();}catch{fail(400,'头像无法解码，请重新选择图片。');}
+ }
+ const id=randomUUID(),avatarId=avatarBytes?randomUUID():null;
+ await transaction(async c=>{
+  await c.execute("INSERT INTO users(id,username,name,password_hash,role,enabled,must_change,merchant_status) VALUES(?,?,?,?, 'shop',0,0,'pending')",[id,login,name,encoded]);
+  if(avatarBytes){await c.execute("INSERT INTO media(id,owner_id,purpose,bytes) VALUES(?,?,'avatar',?)",[avatarId,id,avatarBytes]);await c.execute('INSERT INTO merchant_avatars(user_id,media_id) VALUES(?,?)',[id,avatarId]);}
+ });
  res.status(201).json({id,status:'pending'});
 });
 publicMarket(app,{pool,fail});
@@ -85,7 +94,7 @@ app.use('/api',async(req,res,next)=>{
  if(!u) return res.status(401).json({error:'登录已过期，请重新登录。'});
  req.user=u;req.tokenHash=hash(token);next();
 });
-app.get('/api/me',async(req,res)=>{const user=publicUser(req.user);if(req.user.role==='customer'){const [[c]]=await pool.execute('SELECT c.id AS customerId,c.phone,c.version AS customerVersion,v.media_id AS avatarId FROM customer_accounts ca JOIN customers c ON c.id=ca.customer_id LEFT JOIN customer_avatars v ON v.customer_id=c.id WHERE ca.user_id=?',[req.user.id]);Object.assign(user,c||{});}res.json({user});});
+app.get('/api/me',async(req,res)=>{const user=publicUser(req.user);if(req.user.role==='customer'){const [[c]]=await pool.execute('SELECT c.id AS customerId,c.phone,c.version AS customerVersion,v.media_id AS avatarId FROM customer_accounts ca JOIN customers c ON c.id=ca.customer_id LEFT JOIN customer_avatars v ON v.customer_id=c.id WHERE ca.user_id=?',[req.user.id]);Object.assign(user,c||{});}else if(req.user.role==='shop'){const [[v]]=await pool.execute('SELECT media_id AS avatarId FROM merchant_avatars WHERE user_id=?',[req.user.id]);Object.assign(user,v||{});}res.json({user});});
 app.post('/api/logout',async(req,res)=>{await pool.execute('DELETE FROM sessions WHERE token_hash=?',[req.tokenHash]);res.clearCookie('neon_session',cookieOptions).json({ok:true});});
 app.post('/api/password',async(req,res)=>{
  throttle('password:'+req.user.id,10);
@@ -114,7 +123,7 @@ app.patch('/api/users/:id',admin,async(req,res)=>{
   if(encoded||!req.body.enabled) await c.execute('DELETE FROM sessions WHERE user_id=?',[req.params.id]);
  });res.json({ok:true});
 });
-app.get('/api/merchant-users',admin,async(_req,res)=>{const [rows]=await pool.query("SELECT * FROM users WHERE role='shop' ORDER BY created_at DESC");res.json(rows.map(publicUser));});
+app.get('/api/merchant-users',admin,async(_req,res)=>{const [rows]=await pool.query("SELECT u.*,(SELECT media_id FROM merchant_avatars WHERE user_id=u.id) AS avatar_id FROM users u WHERE u.role='shop' ORDER BY u.created_at DESC");res.json(rows.map(u=>({...publicUser(u),avatarId:u.avatar_id||null})));});
 app.patch('/api/merchant-users/:id',admin,async(req,res)=>{
  const name=text(req.body,'name',50),state=text(req.body,'state',20);
  if(!['pending','approved','rejected','disabled'].includes(state))fail(400,'商户账号状态无效。');
